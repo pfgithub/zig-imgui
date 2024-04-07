@@ -173,34 +173,31 @@ fn emitCamelCase(name: []const u8) void {
     }
 }
 
-fn emitPrecedingComments(x: std.json.Value, indent: usize) void {
+fn emitCommentLine(comment: std.json.Value, indent: usize) void {
+    for (0..indent) |_|
+        writeByte(' ');
+    write("//");
+    std.debug.assert(std.mem.startsWith(u8, comment.string, "//"));
+    write(comment.string[2..]);
+    write("\n");
+}
+fn emitDocCommentLine(comment: std.json.Value, indent: usize) void {
+    for (0..indent) |_|
+        writeByte(' ');
+    write("///");
+    std.debug.assert(std.mem.startsWith(u8, comment.string, "//"));
+    write(comment.string[2..]);
+    write("\n");
+}
+fn emitDocComments(x: std.json.Value, indent: usize) void {
     if (x.object.get("comments")) |comments| {
         if (comments.object.get("preceding")) |preceding| {
             for (preceding.array.items) |comment| {
-                for (0..indent) |_|
-                    writeByte(' ');
-                write(comment.string);
-                write("\n");
+                emitCommentLine(comment, indent);
             }
         }
-    }
-}
-
-fn hasAttachedComment(x: std.json.Value) bool {
-    if (x.object.get("comments")) |comments| {
         if (comments.object.get("attached")) |comment| {
-            _ = comment;
-            return true;
-        }
-    }
-    return false;
-}
-
-fn emitAttachedComment(x: std.json.Value) void {
-    if (x.object.get("comments")) |comments| {
-        if (comments.object.get("attached")) |comment| {
-            write(" ");
-            write(comment.string);
+            emitDocCommentLine(comment, indent);
         }
     }
 }
@@ -224,13 +221,8 @@ fn endAlignedFields(indent: usize) void {
     }
 
     for (aligned_fields.items) |entry| {
-        emitPrecedingComments(entry.x, indent);
+        emitDocComments(entry.x, indent);
         write(entry.content);
-        if (hasAttachedComment(entry.x)) {
-            for (0..max_size - entry.content.len) |_|
-                writeByte(' ');
-            emitAttachedComment(entry.x);
-        }
         write("\n");
         allocator.free(entry.content);
     }
@@ -277,7 +269,7 @@ fn emitEnum(x: std.json.Value) void {
     if (!keepElement(x)) return;
 
     write("\n");
-    emitPrecedingComments(x, 0);
+    emitDocComments(x, 0);
     emitEnumElements(x.object.get("elements").?);
 }
 
@@ -509,13 +501,8 @@ fn emitStruct(x: std.json.Value, functions: std.json.Value) void {
     const name = trimNamespace(full_name);
 
     write("\n");
-    emitPrecedingComments(x, 0);
+    emitDocComments(x, 0);
     print("pub const {s} = extern struct {{\n", .{name});
-    if (hasAttachedComment(x)) {
-        write("    ");
-        emitAttachedComment(x);
-        write("\n");
-    }
     emitStructFields(x.object.get("fields").?, name);
     emitStructFunctions(functions, full_name);
     write("};\n");
