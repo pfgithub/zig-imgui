@@ -46,6 +46,9 @@ pub fn shutdown() void {
     var brd = BackendRendererData.get();
     brd.deinit();
     allocator.destroy(brd);
+
+    var io = imgui.getIO();
+    io.backend_platform_user_data = null;
 }
 
 pub fn newFrame() !void {
