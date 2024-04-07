@@ -24,7 +24,7 @@ pub fn init(app: *App) !void {
     try imgui_mach.init(allocator, core.device, .{});
 
     var io = imgui.getIO();
-    io.config_flags |= imgui.ConfigFlags_NavEnableKeyboard;
+    io.config_flags |= imgui.ConfigFlags_NavEnableKeyboard | imgui.ConfigFlags_DockingEnable;
     io.font_global_scale = 1.0 / io.display_framebuffer_scale.y;
 
     const font_data = @embedFile("Roboto-Medium.ttf");
@@ -84,8 +84,9 @@ fn render(app: *App) !void {
 
     imgui_mach.newFrame() catch return;
     imgui.newFrame();
+    _ = imgui.dockSpaceOverViewport();
 
-    imgui.text("Hello, world!");
+    imgui.text("Hello, world! 1");
     _ = imgui.sliderFloat("float", &app.f, 0.0, 1.0);
     _ = imgui.colorEdit3("color", &app.color, imgui.ColorEditFlags_None);
     imgui.text("Application average %.3f ms/frame (%.1f FPS)", 1000.0 / io.framerate, io.framerate);

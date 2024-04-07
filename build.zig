@@ -55,6 +55,9 @@ pub fn build(b: *std.Build) !void {
         }).artifact("freetype"));
     }
 
+    // oops!
+    try flags.append("-fno-sanitize=undefined");
+
     lib.addIncludePath(imgui_dep.path("."));
 
     for (files.items) |file| {

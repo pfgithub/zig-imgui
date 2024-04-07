@@ -33,8 +33,8 @@ pub const backends = struct {
     pub const mach = @import("imgui_mach.zig");
 };
 
-pub const VERSION = "1.90.0";
-pub const VERSION_NUM = 19000;
+pub const VERSION = "1.90.4";
+pub const VERSION_NUM = 19040;
 pub const PAYLOAD_TYPE_COLOR_3F = "_COL3F";   // float[3]: Standard type for colors, without alpha. User code may use this type.
 pub const PAYLOAD_TYPE_COLOR_4F = "_COL4F";   // float[4]: Standard type for colors. User code may use this type.
 pub const UNICODE_CODEPOINT_INVALID = 0xFFFD; // Invalid Unicode code point (standard value).
@@ -72,19 +72,21 @@ pub const WindowFlags_AlwaysHorizontalScrollbar = 32768; // Always show horizont
 pub const WindowFlags_NoNavInputs = 65536;               // No gamepad/keyboard navigation within the window
 pub const WindowFlags_NoNavFocus = 131072;               // No focusing toward this window with gamepad/keyboard navigation (e.g. skipped by CTRL+TAB)
 pub const WindowFlags_UnsavedDocument = 262144;          // Display a dot next to the title. When used in a tab/docking context, tab is selected when clicking the X + closure is not assumed (will wait for user to stop submitting the tab). Otherwise closure is assumed when pressing the X, so if you keep submitting the tab may reappear at end of tab bar.
+pub const WindowFlags_NoDocking = 524288;                // Disable docking of this window
 pub const WindowFlags_NoNav = 196608;
 pub const WindowFlags_NoDecoration = 43;
 pub const WindowFlags_NoInputs = 197120;
 // [Internal]
-pub const WindowFlags_NavFlattened = 8388608;            // [BETA] On child window: allow gamepad/keyboard navigation to cross over parent border to this child or between sibling child windows.
+pub const WindowFlags_NavFlattened = 8388608;            // [BETA] On child window: share focus scope, allow gamepad/keyboard navigation to cross over parent border to this child or between sibling child windows.
 pub const WindowFlags_ChildWindow = 16777216;            // Don't use! For internal use by BeginChild()
 pub const WindowFlags_Tooltip = 33554432;                // Don't use! For internal use by BeginTooltip()
 pub const WindowFlags_Popup = 67108864;                  // Don't use! For internal use by BeginPopup()
 pub const WindowFlags_Modal = 134217728;                 // Don't use! For internal use by BeginPopupModal()
 pub const WindowFlags_ChildMenu = 268435456;             // Don't use! For internal use by BeginMenu()
+pub const WindowFlags_DockNodeHost = 536870912;          // Don't use! For internal use by Begin()/NewFrame()
 
 // Flags for ImGui::BeginChild()
-// (Legacy: bot 0 must always correspond to ImGuiChildFlags_Border to be backward compatible with old API using 'bool border = false'.
+// (Legacy: bit 0 must always correspond to ImGuiChildFlags_Border to be backward compatible with old API using 'bool border = false'.
 // About using AutoResizeX/AutoResizeY flags:
 // - May be combined with SetNextWindowSizeConstraints() to set a min/max size for each axis (see "Demo->Child->Auto-resize with Constraints").
 // - Size measurement for a given axis is only performed when the child window is within visible boundaries, or is just appearing.
@@ -93,7 +95,7 @@ pub const WindowFlags_ChildMenu = 268435456;             // Don't use! For inter
 //   - You may also use ImGuiChildFlags_AlwaysAutoResize to force an update even when child window is not in view.
 //     HOWEVER PLEASE UNDERSTAND THAT DOING SO WILL PREVENT BeginChild() FROM EVER RETURNING FALSE, disabling benefits of coarse clipping.
 pub const ChildFlags_None = 0;
-pub const ChildFlags_Border = 1;                 // Show an outer border and enable WindowPadding. (Important: this is always == 1 == true for legacy reason)
+pub const ChildFlags_Border = 1;                 // Show an outer border and enable WindowPadding. (IMPORTANT: this is always == 1 == true for legacy reason)
 pub const ChildFlags_AlwaysUseWindowPadding = 2; // Pad with style.WindowPadding even if no border are drawn (no padding by default for non-bordered child windows because it makes more sense)
 pub const ChildFlags_ResizeX = 4;                // Allow resize from right border (layout direction). Enable .ini saving (unless ImGuiWindowFlags_NoSavedSettings passed to window flags)
 pub const ChildFlags_ResizeY = 8;                // Allow resize from bottom border (layout direction). "
@@ -144,28 +146,30 @@ pub const TreeNodeFlags_SpanAvailWidth = 2048;        // Extend hit box to the r
 pub const TreeNodeFlags_SpanFullWidth = 4096;         // Extend hit box to the left-most and right-most edges (bypass the indented area).
 pub const TreeNodeFlags_SpanAllColumns = 8192;        // Frame will span all columns of its container table (text will still fit in current column)
 pub const TreeNodeFlags_NavLeftJumpsBackHere = 16384; // (WIP) Nav: left direction may move to this TreeNode() from any of its child (items submitted between TreeNode and TreePop)
-//ImGuiTreeNodeFlags_NoScrollOnOpen     = 1 << 14,  // FIXME: TODO: Disable automatic scroll on TreePop() if node got just open and contents is not visible
+//ImGuiTreeNodeFlags_NoScrollOnOpen     = 1 << 15,  // FIXME: TODO: Disable automatic scroll on TreePop() if node got just open and contents is not visible
 pub const TreeNodeFlags_CollapsingHeader = 26;
 
 // Flags for OpenPopup*(), BeginPopupContext*(), IsPopupOpen() functions.
-// - To be backward compatible with older API which took an 'int mouse_button = 1' argument, we need to treat
-//   small flags values as a mouse button index, so we encode the mouse button in the first few bits of the flags.
+// - To be backward compatible with older API which took an 'int mouse_button = 1' argument instead of 'ImGuiPopupFlags flags',
+//   we need to treat small flags values as a mouse button index, so we encode the mouse button in the first few bits of the flags.
 //   It is therefore guaranteed to be legal to pass a mouse button index in ImGuiPopupFlags.
 // - For the same reason, we exceptionally default the ImGuiPopupFlags argument of BeginPopupContextXXX functions to 1 instead of 0.
 //   IMPORTANT: because the default parameter is 1 (==ImGuiPopupFlags_MouseButtonRight), if you rely on the default parameter
 //   and want to use another flag, you need to pass in the ImGuiPopupFlags_MouseButtonRight flag explicitly.
 // - Multiple buttons currently cannot be combined/or-ed in those functions (we could allow it later).
 pub const PopupFlags_None = 0;
-pub const PopupFlags_MouseButtonLeft = 0;          // For BeginPopupContext*(): open on Left Mouse release. Guaranteed to always be == 0 (same as ImGuiMouseButton_Left)
-pub const PopupFlags_MouseButtonRight = 1;         // For BeginPopupContext*(): open on Right Mouse release. Guaranteed to always be == 1 (same as ImGuiMouseButton_Right)
-pub const PopupFlags_MouseButtonMiddle = 2;        // For BeginPopupContext*(): open on Middle Mouse release. Guaranteed to always be == 2 (same as ImGuiMouseButton_Middle)
+pub const PopupFlags_MouseButtonLeft = 0;           // For BeginPopupContext*(): open on Left Mouse release. Guaranteed to always be == 0 (same as ImGuiMouseButton_Left)
+pub const PopupFlags_MouseButtonRight = 1;          // For BeginPopupContext*(): open on Right Mouse release. Guaranteed to always be == 1 (same as ImGuiMouseButton_Right)
+pub const PopupFlags_MouseButtonMiddle = 2;         // For BeginPopupContext*(): open on Middle Mouse release. Guaranteed to always be == 2 (same as ImGuiMouseButton_Middle)
 pub const PopupFlags_MouseButtonMask_ = 31;
 pub const PopupFlags_MouseButtonDefault_ = 1;
-pub const PopupFlags_NoOpenOverExistingPopup = 32; // For OpenPopup*(), BeginPopupContext*(): don't open if there's already a popup at the same level of the popup stack
-pub const PopupFlags_NoOpenOverItems = 64;         // For BeginPopupContextWindow(): don't return true when hovering items, only when hovering empty space
-pub const PopupFlags_AnyPopupId = 128;             // For IsPopupOpen(): ignore the ImGuiID parameter and test for any popup.
-pub const PopupFlags_AnyPopupLevel = 256;          // For IsPopupOpen(): search/test at any level of the popup stack (default test in the current level)
-pub const PopupFlags_AnyPopup = 384;
+pub const PopupFlags_NoReopen = 32;                 // For OpenPopup*(), BeginPopupContext*(): don't reopen same popup if already open (won't reposition, won't reinitialize navigation)
+//ImGuiPopupFlags_NoReopenAlwaysNavInit = 1 << 6,   // For OpenPopup*(), BeginPopupContext*(): focus and initialize navigation even when not reopening.
+pub const PopupFlags_NoOpenOverExistingPopup = 128; // For OpenPopup*(), BeginPopupContext*(): don't open if there's already a popup at the same level of the popup stack
+pub const PopupFlags_NoOpenOverItems = 256;         // For BeginPopupContextWindow(): don't return true when hovering items, only when hovering empty space
+pub const PopupFlags_AnyPopupId = 1024;             // For IsPopupOpen(): ignore the ImGuiID parameter and test for any popup.
+pub const PopupFlags_AnyPopupLevel = 2048;          // For IsPopupOpen(): search/test at any level of the popup stack (default test in the current level)
+pub const PopupFlags_AnyPopup = 3072;
 
 // Flags for ImGui::Selectable()
 pub const SelectableFlags_None = 0;
@@ -192,7 +196,7 @@ pub const TabBarFlags_None = 0;
 pub const TabBarFlags_Reorderable = 1;                  // Allow manually dragging tabs to re-order them + New tabs are appended at the end of list
 pub const TabBarFlags_AutoSelectNewTabs = 2;            // Automatically select new tabs when they appear
 pub const TabBarFlags_TabListPopupButton = 4;           // Disable buttons to open the tab list popup
-pub const TabBarFlags_NoCloseWithMiddleMouseButton = 8; // Disable behavior of closing tabs (that are submitted with p_open != NULL) with middle mouse button. You can still repro this behavior on user's side with if (IsItemHovered() && IsMouseClicked(2)) *p_open = false.
+pub const TabBarFlags_NoCloseWithMiddleMouseButton = 8; // Disable behavior of closing tabs (that are submitted with p_open != NULL) with middle mouse button. You may handle this behavior manually on user's side with if (IsItemHovered() && IsMouseClicked(2)) *p_open = false.
 pub const TabBarFlags_NoTabListScrollingButtons = 16;   // Disable scrolling buttons (apply when fitting policy is ImGuiTabBarFlags_FittingPolicyScroll)
 pub const TabBarFlags_NoTooltip = 32;                   // Disable tooltips when hovering a tab
 pub const TabBarFlags_FittingPolicyResizeDown = 64;     // Resize tabs when they don't fit
@@ -202,135 +206,15 @@ pub const TabBarFlags_FittingPolicyDefault_ = 64;
 
 // Flags for ImGui::BeginTabItem()
 pub const TabItemFlags_None = 0;
-pub const TabItemFlags_UnsavedDocument = 1;              // Display a dot next to the title + tab is selected when clicking the X + closure is not assumed (will wait for user to stop submitting the tab). Otherwise closure is assumed when pressing the X, so if you keep submitting the tab may reappear at end of tab bar.
+pub const TabItemFlags_UnsavedDocument = 1;              // Display a dot next to the title + set ImGuiTabItemFlags_NoAssumedClosure.
 pub const TabItemFlags_SetSelected = 2;                  // Trigger flag to programmatically make the tab selected when calling BeginTabItem()
-pub const TabItemFlags_NoCloseWithMiddleMouseButton = 4; // Disable behavior of closing tabs (that are submitted with p_open != NULL) with middle mouse button. You can still repro this behavior on user's side with if (IsItemHovered() && IsMouseClicked(2)) *p_open = false.
-pub const TabItemFlags_NoPushId = 8;                     // Don't call PushID(tab->ID)/PopID() on BeginTabItem()/EndTabItem()
+pub const TabItemFlags_NoCloseWithMiddleMouseButton = 4; // Disable behavior of closing tabs (that are submitted with p_open != NULL) with middle mouse button. You may handle this behavior manually on user's side with if (IsItemHovered() && IsMouseClicked(2)) *p_open = false.
+pub const TabItemFlags_NoPushId = 8;                     // Don't call PushID()/PopID() on BeginTabItem()/EndTabItem()
 pub const TabItemFlags_NoTooltip = 16;                   // Disable tooltip for the given tab
 pub const TabItemFlags_NoReorder = 32;                   // Disable reordering this tab or having another tab cross over this tab
 pub const TabItemFlags_Leading = 64;                     // Enforce the tab position to the left of the tab bar (after the tab list popup button)
 pub const TabItemFlags_Trailing = 128;                   // Enforce the tab position to the right of the tab bar (before the scrolling buttons)
-
-// Flags for ImGui::BeginTable()
-// - Important! Sizing policies have complex and subtle side effects, much more so than you would expect.
-//   Read comments/demos carefully + experiment with live demos to get acquainted with them.
-// - The DEFAULT sizing policies are:
-//    - Default to ImGuiTableFlags_SizingFixedFit    if ScrollX is on, or if host window has ImGuiWindowFlags_AlwaysAutoResize.
-//    - Default to ImGuiTableFlags_SizingStretchSame if ScrollX is off.
-// - When ScrollX is off:
-//    - Table defaults to ImGuiTableFlags_SizingStretchSame -> all Columns defaults to ImGuiTableColumnFlags_WidthStretch with same weight.
-//    - Columns sizing policy allowed: Stretch (default), Fixed/Auto.
-//    - Fixed Columns (if any) will generally obtain their requested width (unless the table cannot fit them all).
-//    - Stretch Columns will share the remaining width according to their respective weight.
-//    - Mixed Fixed/Stretch columns is possible but has various side-effects on resizing behaviors.
-//      The typical use of mixing sizing policies is: any number of LEADING Fixed columns, followed by one or two TRAILING Stretch columns.
-//      (this is because the visible order of columns have subtle but necessary effects on how they react to manual resizing).
-// - When ScrollX is on:
-//    - Table defaults to ImGuiTableFlags_SizingFixedFit -> all Columns defaults to ImGuiTableColumnFlags_WidthFixed
-//    - Columns sizing policy allowed: Fixed/Auto mostly.
-//    - Fixed Columns can be enlarged as needed. Table will show a horizontal scrollbar if needed.
-//    - When using auto-resizing (non-resizable) fixed columns, querying the content width to use item right-alignment e.g. SetNextItemWidth(-FLT_MIN) doesn't make sense, would create a feedback loop.
-//    - Using Stretch columns OFTEN DOES NOT MAKE SENSE if ScrollX is on, UNLESS you have specified a value for 'inner_width' in BeginTable().
-//      If you specify a value for 'inner_width' then effectively the scrolling space is known and Stretch or mixed Fixed/Stretch columns become meaningful again.
-// - Read on documentation at the top of imgui_tables.cpp for details.
-// Features
-pub const TableFlags_None = 0;
-pub const TableFlags_Resizable = 1;                      // Enable resizing columns.
-pub const TableFlags_Reorderable = 2;                    // Enable reordering columns in header row (need calling TableSetupColumn() + TableHeadersRow() to display headers)
-pub const TableFlags_Hideable = 4;                       // Enable hiding/disabling columns in context menu.
-pub const TableFlags_Sortable = 8;                       // Enable sorting. Call TableGetSortSpecs() to obtain sort specs. Also see ImGuiTableFlags_SortMulti and ImGuiTableFlags_SortTristate.
-pub const TableFlags_NoSavedSettings = 16;               // Disable persisting columns order, width and sort settings in the .ini file.
-pub const TableFlags_ContextMenuInBody = 32;             // Right-click on columns body/contents will display table context menu. By default it is available in TableHeadersRow().
-// Decorations
-pub const TableFlags_RowBg = 64;                         // Set each RowBg color with ImGuiCol_TableRowBg or ImGuiCol_TableRowBgAlt (equivalent of calling TableSetBgColor with ImGuiTableBgFlags_RowBg0 on each row manually)
-pub const TableFlags_BordersInnerH = 128;                // Draw horizontal borders between rows.
-pub const TableFlags_BordersOuterH = 256;                // Draw horizontal borders at the top and bottom.
-pub const TableFlags_BordersInnerV = 512;                // Draw vertical borders between columns.
-pub const TableFlags_BordersOuterV = 1024;               // Draw vertical borders on the left and right sides.
-pub const TableFlags_BordersH = 384;                     // Draw horizontal borders.
-pub const TableFlags_BordersV = 1536;                    // Draw vertical borders.
-pub const TableFlags_BordersInner = 640;                 // Draw inner borders.
-pub const TableFlags_BordersOuter = 1280;                // Draw outer borders.
-pub const TableFlags_Borders = 1920;                     // Draw all borders.
-pub const TableFlags_NoBordersInBody = 2048;             // [ALPHA] Disable vertical borders in columns Body (borders will always appear in Headers). -> May move to style
-pub const TableFlags_NoBordersInBodyUntilResize = 4096;  // [ALPHA] Disable vertical borders in columns Body until hovered for resize (borders will always appear in Headers). -> May move to style
-// Sizing Policy (read above for defaults)
-pub const TableFlags_SizingFixedFit = 8192;              // Columns default to _WidthFixed or _WidthAuto (if resizable or not resizable), matching contents width.
-pub const TableFlags_SizingFixedSame = 16384;            // Columns default to _WidthFixed or _WidthAuto (if resizable or not resizable), matching the maximum contents width of all columns. Implicitly enable ImGuiTableFlags_NoKeepColumnsVisible.
-pub const TableFlags_SizingStretchProp = 24576;          // Columns default to _WidthStretch with default weights proportional to each columns contents widths.
-pub const TableFlags_SizingStretchSame = 32768;          // Columns default to _WidthStretch with default weights all equal, unless overridden by TableSetupColumn().
-// Sizing Extra Options
-pub const TableFlags_NoHostExtendX = 65536;              // Make outer width auto-fit to columns, overriding outer_size.x value. Only available when ScrollX/ScrollY are disabled and Stretch columns are not used.
-pub const TableFlags_NoHostExtendY = 131072;             // Make outer height stop exactly at outer_size.y (prevent auto-extending table past the limit). Only available when ScrollX/ScrollY are disabled. Data below the limit will be clipped and not visible.
-pub const TableFlags_NoKeepColumnsVisible = 262144;      // Disable keeping column always minimally visible when ScrollX is off and table gets too small. Not recommended if columns are resizable.
-pub const TableFlags_PreciseWidths = 524288;             // Disable distributing remainder width to stretched columns (width allocation on a 100-wide table with 3 columns: Without this flag: 33,33,34. With this flag: 33,33,33). With larger number of columns, resizing will appear to be less smooth.
-// Clipping
-pub const TableFlags_NoClip = 1048576;                   // Disable clipping rectangle for every individual columns (reduce draw command count, items will be able to overflow into other columns). Generally incompatible with TableSetupScrollFreeze().
-// Padding
-pub const TableFlags_PadOuterX = 2097152;                // Default if BordersOuterV is on. Enable outermost padding. Generally desirable if you have headers.
-pub const TableFlags_NoPadOuterX = 4194304;              // Default if BordersOuterV is off. Disable outermost padding.
-pub const TableFlags_NoPadInnerX = 8388608;              // Disable inner padding between columns (double inner padding if BordersOuterV is on, single inner padding if BordersOuterV is off).
-// Scrolling
-pub const TableFlags_ScrollX = 16777216;                 // Enable horizontal scrolling. Require 'outer_size' parameter of BeginTable() to specify the container size. Changes default sizing policy. Because this creates a child window, ScrollY is currently generally recommended when using ScrollX.
-pub const TableFlags_ScrollY = 33554432;                 // Enable vertical scrolling. Require 'outer_size' parameter of BeginTable() to specify the container size.
-// Sorting
-pub const TableFlags_SortMulti = 67108864;               // Hold shift when clicking headers to sort on multiple column. TableGetSortSpecs() may return specs where (SpecsCount > 1).
-pub const TableFlags_SortTristate = 134217728;           // Allow no sorting, disable default sorting. TableGetSortSpecs() may return specs where (SpecsCount == 0).
-// Miscellaneous
-pub const TableFlags_HighlightHoveredColumn = 268435456; // Highlight column headers when hovered (may evolve into a fuller highlight)
-// [Internal] Combinations and masks
-pub const TableFlags_SizingMask_ = 57344;
-
-// Flags for ImGui::TableSetupColumn()
-// Input configuration flags
-pub const TableColumnFlags_None = 0;
-pub const TableColumnFlags_Disabled = 1;                 // Overriding/master disable flag: hide column, won't show in context menu (unlike calling TableSetColumnEnabled() which manipulates the user accessible state)
-pub const TableColumnFlags_DefaultHide = 2;              // Default as a hidden/disabled column.
-pub const TableColumnFlags_DefaultSort = 4;              // Default as a sorting column.
-pub const TableColumnFlags_WidthStretch = 8;             // Column will stretch. Preferable with horizontal scrolling disabled (default if table sizing policy is _SizingStretchSame or _SizingStretchProp).
-pub const TableColumnFlags_WidthFixed = 16;              // Column will not stretch. Preferable with horizontal scrolling enabled (default if table sizing policy is _SizingFixedFit and table is resizable).
-pub const TableColumnFlags_NoResize = 32;                // Disable manual resizing.
-pub const TableColumnFlags_NoReorder = 64;               // Disable manual reordering this column, this will also prevent other columns from crossing over this column.
-pub const TableColumnFlags_NoHide = 128;                 // Disable ability to hide/disable this column.
-pub const TableColumnFlags_NoClip = 256;                 // Disable clipping for this column (all NoClip columns will render in a same draw command).
-pub const TableColumnFlags_NoSort = 512;                 // Disable ability to sort on this field (even if ImGuiTableFlags_Sortable is set on the table).
-pub const TableColumnFlags_NoSortAscending = 1024;       // Disable ability to sort in the ascending direction.
-pub const TableColumnFlags_NoSortDescending = 2048;      // Disable ability to sort in the descending direction.
-pub const TableColumnFlags_NoHeaderLabel = 4096;         // TableHeadersRow() will not submit horizontal label for this column. Convenient for some small columns. Name will still appear in context menu or in angled headers.
-pub const TableColumnFlags_NoHeaderWidth = 8192;         // Disable header text width contribution to automatic column width.
-pub const TableColumnFlags_PreferSortAscending = 16384;  // Make the initial sort direction Ascending when first sorting on this column (default).
-pub const TableColumnFlags_PreferSortDescending = 32768; // Make the initial sort direction Descending when first sorting on this column.
-pub const TableColumnFlags_IndentEnable = 65536;         // Use current Indent value when entering cell (default for column 0).
-pub const TableColumnFlags_IndentDisable = 131072;       // Ignore current Indent value when entering cell (default for columns > 0). Indentation changes _within_ the cell will still be honored.
-pub const TableColumnFlags_AngledHeader = 262144;        // TableHeadersRow() will submit an angled header row for this column. Note this will add an extra row.
-// Output status flags, read-only via TableGetColumnFlags()
-pub const TableColumnFlags_IsEnabled = 16777216;         // Status: is enabled == not hidden by user/api (referred to as "Hide" in _DefaultHide and _NoHide) flags.
-pub const TableColumnFlags_IsVisible = 33554432;         // Status: is visible == is enabled AND not clipped by scrolling.
-pub const TableColumnFlags_IsSorted = 67108864;          // Status: is currently part of the sort specs
-pub const TableColumnFlags_IsHovered = 134217728;        // Status: is hovered by mouse
-// [Internal] Combinations and masks
-pub const TableColumnFlags_WidthMask_ = 24;
-pub const TableColumnFlags_IndentMask_ = 196608;
-pub const TableColumnFlags_StatusMask_ = 251658240;
-pub const TableColumnFlags_NoDirectResize_ = 1073741824; // [Internal] Disable user resizing this column directly (it may however we resized indirectly from its left edge)
-
-// Flags for ImGui::TableNextRow()
-pub const TableRowFlags_None = 0;
-pub const TableRowFlags_Headers = 1; // Identify header row (set default background color + width of its contents accounted differently for auto column width)
-
-// Enum for ImGui::TableSetBgColor()
-// Background colors are rendering in 3 layers:
-//  - Layer 0: draw with RowBg0 color if set, otherwise draw with ColumnBg0 if set.
-//  - Layer 1: draw with RowBg1 color if set, otherwise draw with ColumnBg1 if set.
-//  - Layer 2: draw with CellBg color if set.
-// The purpose of the two row/columns layers is to let you decide if a background color change should override or blend with the existing color.
-// When using ImGuiTableFlags_RowBg on the table, each row has the RowBg0 color automatically set for odd/even rows.
-// If you set the color of RowBg0 target, your color will override the existing RowBg0 color.
-// If you set the color of RowBg1 or ColumnBg1 target, your color will blend over the RowBg0 color.
-pub const TableBgTarget_None = 0;
-pub const TableBgTarget_RowBg0 = 1; // Set row background color 0 (generally used for background, automatically set when ImGuiTableFlags_RowBg is used)
-pub const TableBgTarget_RowBg1 = 2; // Set row background color 1 (generally used for selection marking)
-pub const TableBgTarget_CellBg = 3; // Set cell background color (top-most color)
+pub const TabItemFlags_NoAssumedClosure = 256;           // Tab is selected when trying to close + closure is not immediately assumed (will wait for user to stop submitting the tab). Otherwise closure is assumed when pressing the X, so if you keep submitting the tab may reappear at end of tab bar.
 
 // Flags for ImGui::IsWindowFocused()
 pub const FocusedFlags_None = 0;
@@ -338,7 +222,7 @@ pub const FocusedFlags_ChildWindows = 1;        // Return true if any children o
 pub const FocusedFlags_RootWindow = 2;          // Test from root window (top most parent of the current hierarchy)
 pub const FocusedFlags_AnyWindow = 4;           // Return true if any window is focused. Important: If you are trying to tell how to dispatch your low-level inputs, do NOT use this. Use 'io.WantCaptureMouse' instead! Please read the FAQ!
 pub const FocusedFlags_NoPopupHierarchy = 8;    // Do not consider popup hierarchy (do not treat popup emitter as parent of popup) (when used with _ChildWindows or _RootWindow)
-//ImGuiFocusedFlags_DockHierarchy               = 1 << 4,   // Consider docking hierarchy (treat dockspace host as parent of docked window) (when used with _ChildWindows or _RootWindow)
+pub const FocusedFlags_DockHierarchy = 16;      // Consider docking hierarchy (treat dockspace host as parent of docked window) (when used with _ChildWindows or _RootWindow)
 pub const FocusedFlags_RootAndChildWindows = 3;
 
 // Flags for ImGui::IsItemHovered(), ImGui::IsWindowHovered()
@@ -349,7 +233,7 @@ pub const HoveredFlags_ChildWindows = 1;                   // IsWindowHovered() 
 pub const HoveredFlags_RootWindow = 2;                     // IsWindowHovered() only: Test from root window (top most parent of the current hierarchy)
 pub const HoveredFlags_AnyWindow = 4;                      // IsWindowHovered() only: Return true if any window is hovered
 pub const HoveredFlags_NoPopupHierarchy = 8;               // IsWindowHovered() only: Do not consider popup hierarchy (do not treat popup emitter as parent of popup) (when used with _ChildWindows or _RootWindow)
-//ImGuiHoveredFlags_DockHierarchy               = 1 << 4,   // IsWindowHovered() only: Consider docking hierarchy (treat dockspace host as parent of docked window) (when used with _ChildWindows or _RootWindow)
+pub const HoveredFlags_DockHierarchy = 16;                 // IsWindowHovered() only: Consider docking hierarchy (treat dockspace host as parent of docked window) (when used with _ChildWindows or _RootWindow)
 pub const HoveredFlags_AllowWhenBlockedByPopup = 32;       // Return true even if a popup window is normally blocking access to this item/window
 //ImGuiHoveredFlags_AllowWhenBlockedByModal     = 1 << 6,   // Return true even if a modal popup window is normally blocking access to this item/window. FIXME-TODO: Unavailable yet.
 pub const HoveredFlags_AllowWhenBlockedByActiveItem = 128; // Return true even if an active item is blocking access to this item/window. Useful for Drag and Drop patterns.
@@ -375,6 +259,19 @@ pub const HoveredFlags_DelayNone = 16384;                  // IsItemHovered() on
 pub const HoveredFlags_DelayShort = 32768;                 // IsItemHovered() only: Return true after style.HoverDelayShort elapsed (~0.15 sec) (shared between items) + requires mouse to be stationary for style.HoverStationaryDelay (once per item).
 pub const HoveredFlags_DelayNormal = 65536;                // IsItemHovered() only: Return true after style.HoverDelayNormal elapsed (~0.40 sec) (shared between items) + requires mouse to be stationary for style.HoverStationaryDelay (once per item).
 pub const HoveredFlags_NoSharedDelay = 131072;             // IsItemHovered() only: Disable shared delay system where moving from one item to the next keeps the previous timer for a short time (standard for tooltips with long delays)
+
+// Flags for ImGui::DockSpace(), shared/inherited by child nodes.
+// (Some flags can be applied to individual nodes directly)
+// FIXME-DOCK: Also see ImGuiDockNodeFlagsPrivate_ which may involve using the WIP and internal DockBuilder api.
+pub const DockNodeFlags_None = 0;
+pub const DockNodeFlags_KeepAliveOnly = 1;            //       // Don't display the dockspace node but keep it alive. Windows docked into this dockspace node won't be undocked.
+//ImGuiDockNodeFlags_NoCentralNode              = 1 << 1,   //       // Disable Central Node (the node which can stay empty)
+pub const DockNodeFlags_NoDockingOverCentralNode = 4; //       // Disable docking over the Central Node, which will be always kept empty.
+pub const DockNodeFlags_PassthruCentralNode = 8;      //       // Enable passthru dockspace: 1) DockSpace() will render a ImGuiCol_WindowBg background covering everything excepted the Central Node when empty. Meaning the host window should probably use SetNextWindowBgAlpha(0.0f) prior to Begin() when using this. 2) When Central Node is empty: let inputs pass-through + won't display a DockingEmptyBg background. See demo for details.
+pub const DockNodeFlags_NoDockingSplit = 16;          //       // Disable other windows/nodes from splitting this node.
+pub const DockNodeFlags_NoResize = 32;                // Saved // Disable resizing node using the splitter/separators. Useful with programmatically setup dockspaces.
+pub const DockNodeFlags_AutoHideTabBar = 64;          //       // Tab bar will automatically hide when there is a single window in the dock node.
+pub const DockNodeFlags_NoUndocking = 128;            //       // Disable undocking this node.
 
 // Flags for ImGui::BeginDragDropSource(), ImGui::AcceptDragDropPayload()
 pub const DragDropFlags_None = 0;
@@ -422,6 +319,7 @@ pub const SortDirection_Descending = 2; // Descending = 9->0, Z->A etc.
 // Since >= 1.89 we increased typing (went from int to enum), some legacy code may need a cast to ImGuiKey.
 // Read details about the 1.87 and 1.89 transition : https://github.com/ocornut/imgui/issues/4921
 // Note that "Keys" related to physical keys and are not the same concept as input "Characters", the later are submitted via io.AddInputCharacter().
+// The keyboard key enum values are named after the keys on a standard US keyboard, and on other keyboard types the keys reported may not match the keycaps.
 // Keyboard
 pub const Key_None = 0;
 pub const Key_Tab = 512;                 // == ImGuiKey_NamedKey_BEGIN
@@ -610,22 +508,33 @@ pub const Key_KeysData_OFFSET = 512;     // Accesses to io.KeysData[] must use (
 
 // Configuration flags stored in io.ConfigFlags. Set by user/application.
 pub const ConfigFlags_None = 0;
-pub const ConfigFlags_NavEnableKeyboard = 1;    // Master keyboard navigation enable flag. Enable full Tabbing + directional arrows + space/enter to activate.
-pub const ConfigFlags_NavEnableGamepad = 2;     // Master gamepad navigation enable flag. Backend also needs to set ImGuiBackendFlags_HasGamepad.
-pub const ConfigFlags_NavEnableSetMousePos = 4; // Instruct navigation to move the mouse cursor. May be useful on TV/console systems where moving a virtual mouse is awkward. Will update io.MousePos and set io.WantSetMousePos=true. If enabled you MUST honor io.WantSetMousePos requests in your backend, otherwise ImGui will react as if the mouse is jumping around back and forth.
-pub const ConfigFlags_NavNoCaptureKeyboard = 8; // Instruct navigation to not set the io.WantCaptureKeyboard flag when io.NavActive is set.
-pub const ConfigFlags_NoMouse = 16;             // Instruct imgui to clear mouse position/buttons in NewFrame(). This allows ignoring the mouse information set by the backend.
-pub const ConfigFlags_NoMouseCursorChange = 32; // Instruct backend to not alter mouse cursor shape and visibility. Use if the backend cursor changes are interfering with yours and you don't want to use SetMouseCursor() to change mouse cursor. You may want to honor requests from imgui by reading GetMouseCursor() yourself instead.
+pub const ConfigFlags_NavEnableKeyboard = 1;           // Master keyboard navigation enable flag. Enable full Tabbing + directional arrows + space/enter to activate.
+pub const ConfigFlags_NavEnableGamepad = 2;            // Master gamepad navigation enable flag. Backend also needs to set ImGuiBackendFlags_HasGamepad.
+pub const ConfigFlags_NavEnableSetMousePos = 4;        // Instruct navigation to move the mouse cursor. May be useful on TV/console systems where moving a virtual mouse is awkward. Will update io.MousePos and set io.WantSetMousePos=true. If enabled you MUST honor io.WantSetMousePos requests in your backend, otherwise ImGui will react as if the mouse is jumping around back and forth.
+pub const ConfigFlags_NavNoCaptureKeyboard = 8;        // Instruct navigation to not set the io.WantCaptureKeyboard flag when io.NavActive is set.
+pub const ConfigFlags_NoMouse = 16;                    // Instruct imgui to clear mouse position/buttons in NewFrame(). This allows ignoring the mouse information set by the backend.
+pub const ConfigFlags_NoMouseCursorChange = 32;        // Instruct backend to not alter mouse cursor shape and visibility. Use if the backend cursor changes are interfering with yours and you don't want to use SetMouseCursor() to change mouse cursor. You may want to honor requests from imgui by reading GetMouseCursor() yourself instead.
+// [BETA] Docking
+pub const ConfigFlags_DockingEnable = 64;              // Docking enable flags.
+// [BETA] Viewports
+// When using viewports it is recommended that your default value for ImGuiCol_WindowBg is opaque (Alpha=1.0) so transition to a viewport won't be noticeable.
+pub const ConfigFlags_ViewportsEnable = 1024;          // Viewport enable flags (require both ImGuiBackendFlags_PlatformHasViewports + ImGuiBackendFlags_RendererHasViewports set by the respective backends)
+pub const ConfigFlags_DpiEnableScaleViewports = 16384; // [BETA: Don't use] FIXME-DPI: Reposition and resize imgui windows when the DpiScale of a viewport changed (mostly useful for the main viewport hosting other window). Note that resizing the main window itself is up to your application.
+pub const ConfigFlags_DpiEnableScaleFonts = 32768;     // [BETA: Don't use] FIXME-DPI: Request bitmap-scaled fonts to match DpiScale. This is a very low-quality workaround. The correct way to handle DPI is _currently_ to replace the atlas and/or fonts in the Platform_OnChangedViewport callback, but this is all early work in progress.
 // User storage (to allow your backend/engine to communicate to code that may be shared between multiple projects. Those flags are NOT used by core Dear ImGui)
-pub const ConfigFlags_IsSRGB = 1048576;         // Application is SRGB-aware.
-pub const ConfigFlags_IsTouchScreen = 2097152;  // Application is using a touch screen instead of a mouse.
+pub const ConfigFlags_IsSRGB = 1048576;                // Application is SRGB-aware.
+pub const ConfigFlags_IsTouchScreen = 2097152;         // Application is using a touch screen instead of a mouse.
 
 // Backend capabilities flags stored in io.BackendFlags. Set by imgui_impl_xxx or custom backend.
 pub const BackendFlags_None = 0;
-pub const BackendFlags_HasGamepad = 1;           // Backend Platform supports gamepad and currently has one connected.
-pub const BackendFlags_HasMouseCursors = 2;      // Backend Platform supports honoring GetMouseCursor() value to change the OS cursor shape.
-pub const BackendFlags_HasSetMousePos = 4;       // Backend Platform supports io.WantSetMousePos requests to reposition the OS mouse position (only used if ImGuiConfigFlags_NavEnableSetMousePos is set).
-pub const BackendFlags_RendererHasVtxOffset = 8; // Backend Renderer supports ImDrawCmd::VtxOffset. This enables output of large meshes (64K+ vertices) while still using 16-bit indices.
+pub const BackendFlags_HasGamepad = 1;                 // Backend Platform supports gamepad and currently has one connected.
+pub const BackendFlags_HasMouseCursors = 2;            // Backend Platform supports honoring GetMouseCursor() value to change the OS cursor shape.
+pub const BackendFlags_HasSetMousePos = 4;             // Backend Platform supports io.WantSetMousePos requests to reposition the OS mouse position (only used if ImGuiConfigFlags_NavEnableSetMousePos is set).
+pub const BackendFlags_RendererHasVtxOffset = 8;       // Backend Renderer supports ImDrawCmd::VtxOffset. This enables output of large meshes (64K+ vertices) while still using 16-bit indices.
+// [BETA] Viewports
+pub const BackendFlags_PlatformHasViewports = 1024;    // Backend Platform supports multiple viewports.
+pub const BackendFlags_HasMouseHoveredViewport = 2048; // Backend Platform supports calling io.AddMouseViewportEvent() with the viewport under the mouse. IF POSSIBLE, ignore viewports with the ImGuiViewportFlags_NoInputs flag (Win32 backend, GLFW 3.30+ backend can do this, SDL backend cannot). If this cannot be done, Dear ImGui needs to use a flawed heuristic to find the viewport under.
+pub const BackendFlags_RendererHasViewports = 4096;    // Backend Renderer supports multiple viewports.
 
 // Enumeration for PushStyleColor() / PopStyleColor()
 pub const Col_Text = 0;
@@ -638,15 +547,15 @@ pub const Col_BorderShadow = 6;
 pub const Col_FrameBg = 7;                // Background of checkbox, radio button, plot, slider, text input
 pub const Col_FrameBgHovered = 8;
 pub const Col_FrameBgActive = 9;
-pub const Col_TitleBg = 10;
-pub const Col_TitleBgActive = 11;
-pub const Col_TitleBgCollapsed = 12;
+pub const Col_TitleBg = 10;               // Title bar
+pub const Col_TitleBgActive = 11;         // Title bar when focused
+pub const Col_TitleBgCollapsed = 12;      // Title bar when collapsed
 pub const Col_MenuBarBg = 13;
 pub const Col_ScrollbarBg = 14;
 pub const Col_ScrollbarGrab = 15;
 pub const Col_ScrollbarGrabHovered = 16;
 pub const Col_ScrollbarGrabActive = 17;
-pub const Col_CheckMark = 18;
+pub const Col_CheckMark = 18;             // Checkbox tick and RadioButton circle
 pub const Col_SliderGrab = 19;
 pub const Col_SliderGrabActive = 20;
 pub const Col_Button = 21;
@@ -666,22 +575,24 @@ pub const Col_TabHovered = 34;
 pub const Col_TabActive = 35;
 pub const Col_TabUnfocused = 36;
 pub const Col_TabUnfocusedActive = 37;
-pub const Col_PlotLines = 38;
-pub const Col_PlotLinesHovered = 39;
-pub const Col_PlotHistogram = 40;
-pub const Col_PlotHistogramHovered = 41;
-pub const Col_TableHeaderBg = 42;         // Table header background
-pub const Col_TableBorderStrong = 43;     // Table outer and header borders (prefer using Alpha=1.0 here)
-pub const Col_TableBorderLight = 44;      // Table inner borders (prefer using Alpha=1.0 here)
-pub const Col_TableRowBg = 45;            // Table row background (even rows)
-pub const Col_TableRowBgAlt = 46;         // Table row background (odd rows)
-pub const Col_TextSelectedBg = 47;
-pub const Col_DragDropTarget = 48;        // Rectangle highlighting a drop target
-pub const Col_NavHighlight = 49;          // Gamepad/keyboard: current highlighted item
-pub const Col_NavWindowingHighlight = 50; // Highlight window when using CTRL+TAB
-pub const Col_NavWindowingDimBg = 51;     // Darken/colorize entire screen behind the CTRL+TAB window list, when active
-pub const Col_ModalWindowDimBg = 52;      // Darken/colorize entire screen behind a modal window, when one is active
-pub const Col_COUNT = 53;
+pub const Col_DockingPreview = 38;        // Preview overlay color when about to docking something
+pub const Col_DockingEmptyBg = 39;        // Background color for empty node (e.g. CentralNode with no window docked into it)
+pub const Col_PlotLines = 40;
+pub const Col_PlotLinesHovered = 41;
+pub const Col_PlotHistogram = 42;
+pub const Col_PlotHistogramHovered = 43;
+pub const Col_TableHeaderBg = 44;         // Table header background
+pub const Col_TableBorderStrong = 45;     // Table outer and header borders (prefer using Alpha=1.0 here)
+pub const Col_TableBorderLight = 46;      // Table inner borders (prefer using Alpha=1.0 here)
+pub const Col_TableRowBg = 47;            // Table row background (even rows)
+pub const Col_TableRowBgAlt = 48;         // Table row background (odd rows)
+pub const Col_TextSelectedBg = 49;
+pub const Col_DragDropTarget = 50;        // Rectangle highlighting a drop target
+pub const Col_NavHighlight = 51;          // Gamepad/keyboard: current highlighted item
+pub const Col_NavWindowingHighlight = 52; // Highlight window when using CTRL+TAB
+pub const Col_NavWindowingDimBg = 53;     // Darken/colorize entire screen behind the CTRL+TAB window list, when active
+pub const Col_ModalWindowDimBg = 54;      // Darken/colorize entire screen behind a modal window, when one is active
+pub const Col_COUNT = 55;
 
 // Enumeration for PushStyleVar() / PopStyleVar() to temporarily modify the ImGuiStyle structure.
 // - The enum only refers to fields of ImGuiStyle which makes sense to be pushed/popped inside UI code.
@@ -720,7 +631,8 @@ pub const StyleVar_SelectableTextAlign = 25;     // ImVec2    SelectableTextAlig
 pub const StyleVar_SeparatorTextBorderSize = 26; // float  SeparatorTextBorderSize
 pub const StyleVar_SeparatorTextAlign = 27;      // ImVec2    SeparatorTextAlign
 pub const StyleVar_SeparatorTextPadding = 28;    // ImVec2    SeparatorTextPadding
-pub const StyleVar_COUNT = 29;
+pub const StyleVar_DockingSeparatorSize = 29;    // float     DockingSeparatorSize
+pub const StyleVar_COUNT = 30;
 
 // Flags for InvisibleButton() [extended in imgui_internal.h]
 pub const ButtonFlags_None = 0;
@@ -806,7 +718,7 @@ pub const MouseSource_TouchScreen = 1; // Input is coming from a touch screen (n
 pub const MouseSource_Pen = 2;         // Input is coming from a pressure/magnetic pen (often used in conjunction with high-sampling rates).
 pub const MouseSource_COUNT = 3;
 
-// Enumeration for ImGui::SetWindow***(), SetNextWindow***(), SetNextItem***() functions
+// Enumeration for ImGui::SetNextWindow***(), SetWindow***(), SetNextItem***() functions
 // Represent a condition.
 // Important: Treat as a regular enum! Do NOT combine multiple values using binary operators! All the functions above treat 0 as a shortcut to ImGuiCond_Always.
 pub const Cond_None = 0;         // No condition (always set the variable), same as _Always
@@ -814,6 +726,127 @@ pub const Cond_Always = 1;       // No condition (always set the variable), same
 pub const Cond_Once = 2;         // Set the variable once per runtime session (only the first call will succeed)
 pub const Cond_FirstUseEver = 4; // Set the variable if the object/window has no persistently saved data (no entry in .ini file)
 pub const Cond_Appearing = 8;    // Set the variable if the object/window is appearing after being hidden/inactive (or the first time)
+
+// Flags for ImGui::BeginTable()
+// - Important! Sizing policies have complex and subtle side effects, much more so than you would expect.
+//   Read comments/demos carefully + experiment with live demos to get acquainted with them.
+// - The DEFAULT sizing policies are:
+//    - Default to ImGuiTableFlags_SizingFixedFit    if ScrollX is on, or if host window has ImGuiWindowFlags_AlwaysAutoResize.
+//    - Default to ImGuiTableFlags_SizingStretchSame if ScrollX is off.
+// - When ScrollX is off:
+//    - Table defaults to ImGuiTableFlags_SizingStretchSame -> all Columns defaults to ImGuiTableColumnFlags_WidthStretch with same weight.
+//    - Columns sizing policy allowed: Stretch (default), Fixed/Auto.
+//    - Fixed Columns (if any) will generally obtain their requested width (unless the table cannot fit them all).
+//    - Stretch Columns will share the remaining width according to their respective weight.
+//    - Mixed Fixed/Stretch columns is possible but has various side-effects on resizing behaviors.
+//      The typical use of mixing sizing policies is: any number of LEADING Fixed columns, followed by one or two TRAILING Stretch columns.
+//      (this is because the visible order of columns have subtle but necessary effects on how they react to manual resizing).
+// - When ScrollX is on:
+//    - Table defaults to ImGuiTableFlags_SizingFixedFit -> all Columns defaults to ImGuiTableColumnFlags_WidthFixed
+//    - Columns sizing policy allowed: Fixed/Auto mostly.
+//    - Fixed Columns can be enlarged as needed. Table will show a horizontal scrollbar if needed.
+//    - When using auto-resizing (non-resizable) fixed columns, querying the content width to use item right-alignment e.g. SetNextItemWidth(-FLT_MIN) doesn't make sense, would create a feedback loop.
+//    - Using Stretch columns OFTEN DOES NOT MAKE SENSE if ScrollX is on, UNLESS you have specified a value for 'inner_width' in BeginTable().
+//      If you specify a value for 'inner_width' then effectively the scrolling space is known and Stretch or mixed Fixed/Stretch columns become meaningful again.
+// - Read on documentation at the top of imgui_tables.cpp for details.
+// Features
+pub const TableFlags_None = 0;
+pub const TableFlags_Resizable = 1;                      // Enable resizing columns.
+pub const TableFlags_Reorderable = 2;                    // Enable reordering columns in header row (need calling TableSetupColumn() + TableHeadersRow() to display headers)
+pub const TableFlags_Hideable = 4;                       // Enable hiding/disabling columns in context menu.
+pub const TableFlags_Sortable = 8;                       // Enable sorting. Call TableGetSortSpecs() to obtain sort specs. Also see ImGuiTableFlags_SortMulti and ImGuiTableFlags_SortTristate.
+pub const TableFlags_NoSavedSettings = 16;               // Disable persisting columns order, width and sort settings in the .ini file.
+pub const TableFlags_ContextMenuInBody = 32;             // Right-click on columns body/contents will display table context menu. By default it is available in TableHeadersRow().
+// Decorations
+pub const TableFlags_RowBg = 64;                         // Set each RowBg color with ImGuiCol_TableRowBg or ImGuiCol_TableRowBgAlt (equivalent of calling TableSetBgColor with ImGuiTableBgFlags_RowBg0 on each row manually)
+pub const TableFlags_BordersInnerH = 128;                // Draw horizontal borders between rows.
+pub const TableFlags_BordersOuterH = 256;                // Draw horizontal borders at the top and bottom.
+pub const TableFlags_BordersInnerV = 512;                // Draw vertical borders between columns.
+pub const TableFlags_BordersOuterV = 1024;               // Draw vertical borders on the left and right sides.
+pub const TableFlags_BordersH = 384;                     // Draw horizontal borders.
+pub const TableFlags_BordersV = 1536;                    // Draw vertical borders.
+pub const TableFlags_BordersInner = 640;                 // Draw inner borders.
+pub const TableFlags_BordersOuter = 1280;                // Draw outer borders.
+pub const TableFlags_Borders = 1920;                     // Draw all borders.
+pub const TableFlags_NoBordersInBody = 2048;             // [ALPHA] Disable vertical borders in columns Body (borders will always appear in Headers). -> May move to style
+pub const TableFlags_NoBordersInBodyUntilResize = 4096;  // [ALPHA] Disable vertical borders in columns Body until hovered for resize (borders will always appear in Headers). -> May move to style
+// Sizing Policy (read above for defaults)
+pub const TableFlags_SizingFixedFit = 8192;              // Columns default to _WidthFixed or _WidthAuto (if resizable or not resizable), matching contents width.
+pub const TableFlags_SizingFixedSame = 16384;            // Columns default to _WidthFixed or _WidthAuto (if resizable or not resizable), matching the maximum contents width of all columns. Implicitly enable ImGuiTableFlags_NoKeepColumnsVisible.
+pub const TableFlags_SizingStretchProp = 24576;          // Columns default to _WidthStretch with default weights proportional to each columns contents widths.
+pub const TableFlags_SizingStretchSame = 32768;          // Columns default to _WidthStretch with default weights all equal, unless overridden by TableSetupColumn().
+// Sizing Extra Options
+pub const TableFlags_NoHostExtendX = 65536;              // Make outer width auto-fit to columns, overriding outer_size.x value. Only available when ScrollX/ScrollY are disabled and Stretch columns are not used.
+pub const TableFlags_NoHostExtendY = 131072;             // Make outer height stop exactly at outer_size.y (prevent auto-extending table past the limit). Only available when ScrollX/ScrollY are disabled. Data below the limit will be clipped and not visible.
+pub const TableFlags_NoKeepColumnsVisible = 262144;      // Disable keeping column always minimally visible when ScrollX is off and table gets too small. Not recommended if columns are resizable.
+pub const TableFlags_PreciseWidths = 524288;             // Disable distributing remainder width to stretched columns (width allocation on a 100-wide table with 3 columns: Without this flag: 33,33,34. With this flag: 33,33,33). With larger number of columns, resizing will appear to be less smooth.
+// Clipping
+pub const TableFlags_NoClip = 1048576;                   // Disable clipping rectangle for every individual columns (reduce draw command count, items will be able to overflow into other columns). Generally incompatible with TableSetupScrollFreeze().
+// Padding
+pub const TableFlags_PadOuterX = 2097152;                // Default if BordersOuterV is on. Enable outermost padding. Generally desirable if you have headers.
+pub const TableFlags_NoPadOuterX = 4194304;              // Default if BordersOuterV is off. Disable outermost padding.
+pub const TableFlags_NoPadInnerX = 8388608;              // Disable inner padding between columns (double inner padding if BordersOuterV is on, single inner padding if BordersOuterV is off).
+// Scrolling
+pub const TableFlags_ScrollX = 16777216;                 // Enable horizontal scrolling. Require 'outer_size' parameter of BeginTable() to specify the container size. Changes default sizing policy. Because this creates a child window, ScrollY is currently generally recommended when using ScrollX.
+pub const TableFlags_ScrollY = 33554432;                 // Enable vertical scrolling. Require 'outer_size' parameter of BeginTable() to specify the container size.
+// Sorting
+pub const TableFlags_SortMulti = 67108864;               // Hold shift when clicking headers to sort on multiple column. TableGetSortSpecs() may return specs where (SpecsCount > 1).
+pub const TableFlags_SortTristate = 134217728;           // Allow no sorting, disable default sorting. TableGetSortSpecs() may return specs where (SpecsCount == 0).
+// Miscellaneous
+pub const TableFlags_HighlightHoveredColumn = 268435456; // Highlight column headers when hovered (may evolve into a fuller highlight)
+// [Internal] Combinations and masks
+pub const TableFlags_SizingMask_ = 57344;
+
+// Flags for ImGui::TableSetupColumn()
+// Input configuration flags
+pub const TableColumnFlags_None = 0;
+pub const TableColumnFlags_Disabled = 1;                 // Overriding/master disable flag: hide column, won't show in context menu (unlike calling TableSetColumnEnabled() which manipulates the user accessible state)
+pub const TableColumnFlags_DefaultHide = 2;              // Default as a hidden/disabled column.
+pub const TableColumnFlags_DefaultSort = 4;              // Default as a sorting column.
+pub const TableColumnFlags_WidthStretch = 8;             // Column will stretch. Preferable with horizontal scrolling disabled (default if table sizing policy is _SizingStretchSame or _SizingStretchProp).
+pub const TableColumnFlags_WidthFixed = 16;              // Column will not stretch. Preferable with horizontal scrolling enabled (default if table sizing policy is _SizingFixedFit and table is resizable).
+pub const TableColumnFlags_NoResize = 32;                // Disable manual resizing.
+pub const TableColumnFlags_NoReorder = 64;               // Disable manual reordering this column, this will also prevent other columns from crossing over this column.
+pub const TableColumnFlags_NoHide = 128;                 // Disable ability to hide/disable this column.
+pub const TableColumnFlags_NoClip = 256;                 // Disable clipping for this column (all NoClip columns will render in a same draw command).
+pub const TableColumnFlags_NoSort = 512;                 // Disable ability to sort on this field (even if ImGuiTableFlags_Sortable is set on the table).
+pub const TableColumnFlags_NoSortAscending = 1024;       // Disable ability to sort in the ascending direction.
+pub const TableColumnFlags_NoSortDescending = 2048;      // Disable ability to sort in the descending direction.
+pub const TableColumnFlags_NoHeaderLabel = 4096;         // TableHeadersRow() will not submit horizontal label for this column. Convenient for some small columns. Name will still appear in context menu or in angled headers.
+pub const TableColumnFlags_NoHeaderWidth = 8192;         // Disable header text width contribution to automatic column width.
+pub const TableColumnFlags_PreferSortAscending = 16384;  // Make the initial sort direction Ascending when first sorting on this column (default).
+pub const TableColumnFlags_PreferSortDescending = 32768; // Make the initial sort direction Descending when first sorting on this column.
+pub const TableColumnFlags_IndentEnable = 65536;         // Use current Indent value when entering cell (default for column 0).
+pub const TableColumnFlags_IndentDisable = 131072;       // Ignore current Indent value when entering cell (default for columns > 0). Indentation changes _within_ the cell will still be honored.
+pub const TableColumnFlags_AngledHeader = 262144;        // TableHeadersRow() will submit an angled header row for this column. Note this will add an extra row.
+// Output status flags, read-only via TableGetColumnFlags()
+pub const TableColumnFlags_IsEnabled = 16777216;         // Status: is enabled == not hidden by user/api (referred to as "Hide" in _DefaultHide and _NoHide) flags.
+pub const TableColumnFlags_IsVisible = 33554432;         // Status: is visible == is enabled AND not clipped by scrolling.
+pub const TableColumnFlags_IsSorted = 67108864;          // Status: is currently part of the sort specs
+pub const TableColumnFlags_IsHovered = 134217728;        // Status: is hovered by mouse
+// [Internal] Combinations and masks
+pub const TableColumnFlags_WidthMask_ = 24;
+pub const TableColumnFlags_IndentMask_ = 196608;
+pub const TableColumnFlags_StatusMask_ = 251658240;
+pub const TableColumnFlags_NoDirectResize_ = 1073741824; // [Internal] Disable user resizing this column directly (it may however we resized indirectly from its left edge)
+
+// Flags for ImGui::TableNextRow()
+pub const TableRowFlags_None = 0;
+pub const TableRowFlags_Headers = 1; // Identify header row (set default background color + width of its contents accounted differently for auto column width)
+
+// Enum for ImGui::TableSetBgColor()
+// Background colors are rendering in 3 layers:
+//  - Layer 0: draw with RowBg0 color if set, otherwise draw with ColumnBg0 if set.
+//  - Layer 1: draw with RowBg1 color if set, otherwise draw with ColumnBg1 if set.
+//  - Layer 2: draw with CellBg color if set.
+// The purpose of the two row/columns layers is to let you decide if a background color change should override or blend with the existing color.
+// When using ImGuiTableFlags_RowBg on the table, each row has the RowBg0 color automatically set for odd/even rows.
+// If you set the color of RowBg0 target, your color will override the existing RowBg0 color.
+// If you set the color of RowBg1 or ColumnBg1 target, your color will blend over the RowBg0 color.
+pub const TableBgTarget_None = 0;
+pub const TableBgTarget_RowBg0 = 1; // Set row background color 0 (generally used for background, automatically set when ImGuiTableFlags_RowBg is used)
+pub const TableBgTarget_RowBg1 = 2; // Set row background color 1 (generally used for selection marking)
+pub const TableBgTarget_CellBg = 3; // Set cell background color (top-most color)
 
 // Flags for ImDrawList functions
 // (Legacy: bit 0 must always correspond to ImDrawFlags_Closed to be backward compatible with old API using a bool. Bits 1..3 must be unused)
@@ -848,9 +881,21 @@ pub const FontAtlasFlags_NoBakedLines = 4;       // Don't build thick line textu
 
 // Flags stored in ImGuiViewport::Flags, giving indications to the platform backends.
 pub const ViewportFlags_None = 0;
-pub const ViewportFlags_IsPlatformWindow = 1;  // Represent a Platform Window
-pub const ViewportFlags_IsPlatformMonitor = 2; // Represent a Platform Monitor (unused yet)
-pub const ViewportFlags_OwnedByApp = 4;        // Platform Window: is created/managed by the application (rather than a dear imgui backend)
+pub const ViewportFlags_IsPlatformWindow = 1;       // Represent a Platform Window
+pub const ViewportFlags_IsPlatformMonitor = 2;      // Represent a Platform Monitor (unused yet)
+pub const ViewportFlags_OwnedByApp = 4;             // Platform Window: Was created/managed by the user application? (rather than our backend)
+pub const ViewportFlags_NoDecoration = 8;           // Platform Window: Disable platform decorations: title bar, borders, etc. (generally set all windows, but if ImGuiConfigFlags_ViewportsDecoration is set we only set this on popups/tooltips)
+pub const ViewportFlags_NoTaskBarIcon = 16;         // Platform Window: Disable platform task bar icon (generally set on popups/tooltips, or all windows if ImGuiConfigFlags_ViewportsNoTaskBarIcon is set)
+pub const ViewportFlags_NoFocusOnAppearing = 32;    // Platform Window: Don't take focus when created.
+pub const ViewportFlags_NoFocusOnClick = 64;        // Platform Window: Don't take focus when clicked on.
+pub const ViewportFlags_NoInputs = 128;             // Platform Window: Make mouse pass through so we can drag this window while peaking behind it.
+pub const ViewportFlags_NoRendererClear = 256;      // Platform Window: Renderer doesn't need to clear the framebuffer ahead (because we will fill it entirely).
+pub const ViewportFlags_NoAutoMerge = 512;          // Platform Window: Avoid merging this window into another host window. This can only be set via ImGuiWindowClass viewport flags override (because we need to now ahead if we are going to create a viewport in the first place!).
+pub const ViewportFlags_TopMost = 1024;             // Platform Window: Display on top (for tooltips only).
+pub const ViewportFlags_CanHostOtherWindows = 2048; // Viewport can host multiple imgui windows (secondary viewports are associated to a single window). // FIXME: In practice there's still probably code making the assumption that this is always and only on the MainViewport. Will fix once we add support for "no main viewport".
+// Output status flags (from Platform)
+pub const ViewportFlags_IsMinimized = 4096;         // Platform Window: Window is minimized, can skip render. When minimized we tend to avoid using the viewport pos/size for clipping window or testing if they are contained in the viewport.
+pub const ViewportFlags_IsFocused = 8192;           // Platform Window: Window is focused (last call to Platform_GetWindowFocus() returned true)
 
 //-----------------------------------------------------------------------------
 // Types
@@ -872,7 +917,7 @@ pub const MouseCursor = c_int;                                                  
 pub const SortDirection = c_int;                                                           // -> enum ImGuiSortDirection_   // Enum: A sorting direction (ascending or descending)
 pub const StyleVar = c_int;                                                                // -> enum ImGuiStyleVar_        // Enum: A variable identifier for styling
 pub const TableBgTarget = c_int;                                                           // -> enum ImGuiTableBgTarget_   // Enum: A color target for TableSetBgColor()
-// Flags (declared as int for compatibility with old C++, to allow using as flags without overhead, and to not pollute the top of this file)
+// Flags (declared as int to allow using as flags without overhead, and to not pollute the top of this file)
 // - Tip: Use your programming IDE navigation facilities on the names in the _central column_ below to find the actual flags/enum lists!
 //   In Visual Studio IDE: CTRL+comma ("Edit.GoToAll") can follow symbols in comments, whereas CTRL+F12 ("Edit.GoToImplementation") cannot.
 //   With Visual Assist installed: ALT+G ("VAssistX.GoToImplementation") can also follow symbols in comments.
@@ -885,11 +930,12 @@ pub const ChildFlags = c_int;                                                   
 pub const ColorEditFlags = c_int;                                                          // -> enum ImGuiColorEditFlags_  // Flags: for ColorEdit4(), ColorPicker4() etc.
 pub const ConfigFlags = c_int;                                                             // -> enum ImGuiConfigFlags_     // Flags: for io.ConfigFlags
 pub const ComboFlags = c_int;                                                              // -> enum ImGuiComboFlags_      // Flags: for BeginCombo()
+pub const DockNodeFlags = c_int;                                                           // -> enum ImGuiDockNodeFlags_   // Flags: for DockSpace()
 pub const DragDropFlags = c_int;                                                           // -> enum ImGuiDragDropFlags_   // Flags: for BeginDragDropSource(), AcceptDragDropPayload()
 pub const FocusedFlags = c_int;                                                            // -> enum ImGuiFocusedFlags_    // Flags: for IsWindowFocused()
 pub const HoveredFlags = c_int;                                                            // -> enum ImGuiHoveredFlags_    // Flags: for IsItemHovered(), IsWindowHovered() etc.
 pub const InputTextFlags = c_int;                                                          // -> enum ImGuiInputTextFlags_  // Flags: for InputText(), InputTextMultiline()
-pub const KeyChord = c_int;                                                                // -> ImGuiKey | ImGuiMod_XXX    // Flags: for storage only for now: an ImGuiKey optionally OR-ed with one or more ImGuiMod_XXX values.
+pub const KeyChord = c_int;                                                                // -> ImGuiKey | ImGuiMod_XXX    // Flags: for IsKeyChordPressed(), Shortcut() etc. an ImGuiKey optionally OR-ed with one or more ImGuiMod_XXX values.
 pub const PopupFlags = c_int;                                                              // -> enum ImGuiPopupFlags_      // Flags: for OpenPopup*(), BeginPopupContext*(), IsPopupOpen()
 pub const SelectableFlags = c_int;                                                         // -> enum ImGuiSelectableFlags_ // Flags: for Selectable()
 pub const SliderFlags = c_int;                                                             // -> enum ImGuiSliderFlags_     // Flags: for DragFloat(), DragInt(), SliderFloat(), SliderInt() etc.
@@ -962,6 +1008,24 @@ pub const Vec4 = extern struct {
     w: f32,
 };
 
+// Sorting specifications for a table (often handling sort specs for a single column, occasionally more)
+// Obtained by calling TableGetSortSpecs().
+// When 'SpecsDirty == true' you can sort your data. It will be true with sorting specs have changed since last call, or the first time.
+// Make sure to set 'SpecsDirty = false' after sorting, else you may wastefully sort your data every frame!
+pub const TableSortSpecs = extern struct {
+    specs: ?[*]const TableColumnSortSpecs, // Pointer to sort spec array.
+    specs_count: c_int,                    // Sort spec count. Most often 1. May be > 1 when ImGuiTableFlags_SortMulti is enabled. May be == 0 when ImGuiTableFlags_SortTristate is enabled.
+    specs_dirty: bool,                     // Set to true when specs have changed since last time! Use this to sort again, then clear the flag.
+};
+
+// Sorting specification for one column of a table (sizeof == 12 bytes)
+pub const TableColumnSortSpecs = extern struct {
+    column_user_id: ID,            // User id of the column (if specified by a TableSetupColumn() call)
+    column_index: S16,             // Index of the column
+    sort_order: S16,               // Index within parent ImGuiTableSortSpecs (always stored in order starting from 0, tables sorted on a single criteria will always have a 0 here)
+    sort_direction: SortDirection, // ImGuiSortDirection_Ascending or ImGuiSortDirection_Descending
+};
+
 pub const Style = extern struct {
     alpha: f32,                                  // Global alpha applies to everything in Dear ImGui.
     disabled_alpha: f32,                         // Additional alpha multiplier applied by BeginDisabled(). Multiply over current value of Alpha.
@@ -1002,7 +1066,8 @@ pub const Style = extern struct {
     separator_text_padding: Vec2,                // Horizontal offset of text from each edge of the separator + spacing on other axis. Generally small values. .y is recommended to be == FramePadding.y.
     display_window_padding: Vec2,                // Window position are clamped to be visible within the display area or monitors by at least this amount. Only applies to regular windows.
     display_safe_area_padding: Vec2,             // If you cannot see the edges of your screen (e.g. on a TV) increase the safe area padding. Apply to popups/tooltips as well regular windows. NB: Prefer configuring your TV sets correctly!
-    mouse_cursor_scale: f32,                     // Scale software rendered mouse cursor (when io.MouseDrawCursor is enabled). May be removed later.
+    docking_separator_size: f32,                 // Thickness of resizing border between docked windows
+    mouse_cursor_scale: f32,                     // Scale software rendered mouse cursor (when io.MouseDrawCursor is enabled). We apply per-monitor DPI scaling over this scale. May be removed later.
     anti_aliased_lines: bool,                    // Enable anti-aliased lines/borders. Disable if you are really tight on CPU/GPU. Latched at the beginning of the frame (copied to ImDrawList).
     anti_aliased_lines_use_tex: bool,            // Enable anti-aliased lines/borders using textures where possible. Require backend to render with bilinear filtering (NOT point/nearest filtering). Latched at the beginning of the frame (copied to ImDrawList).
     anti_aliased_fill: bool,                     // Enable anti-aliased edges around filled shapes (rounded rectangles, circles, etc.). Disable if you are really tight on CPU/GPU. Latched at the beginning of the frame (copied to ImDrawList).
@@ -1042,6 +1107,16 @@ pub const IO = extern struct {
     font_allow_user_scaling: bool,                                                          // = false          // Allow user scaling text of individual window with CTRL+Wheel.
     font_default: ?*Font,                                                                   // = NULL           // Font to use on NewFrame(). Use NULL to uses Fonts->Fonts[0].
     display_framebuffer_scale: Vec2,                                                        // = (1, 1)         // For retina display or other situations where window coordinates are different from framebuffer coordinates. This generally ends up in ImDrawData::FramebufferScale.
+    // Docking options (when ImGuiConfigFlags_DockingEnable is set)
+    config_docking_no_split: bool,                                                          // = false          // Simplified docking mode: disable window splitting, so docking is limited to merging multiple windows together into tab-bars.
+    config_docking_with_shift: bool,                                                        // = false          // Enable docking with holding Shift key (reduce visual noise, allows dropping in wider space)
+    config_docking_always_tab_bar: bool,                                                    // = false          // [BETA] [FIXME: This currently creates regression with auto-sizing and general overhead] Make every single floating window display within a docking node.
+    config_docking_transparent_payload: bool,                                               // = false          // [BETA] Make window or viewport transparent when docking and only display docking boxes on the target viewport. Useful if rendering of multiple viewport cannot be synced. Best used with ConfigViewportsNoAutoMerge.
+    // Viewport options (when ImGuiConfigFlags_ViewportsEnable is set)
+    config_viewports_no_auto_merge: bool,                                                   // = false;         // Set to make all floating imgui windows always create their own viewport. Otherwise, they are merged into the main host viewports when overlapping it. May also set ImGuiViewportFlags_NoAutoMerge on individual viewport.
+    config_viewports_no_task_bar_icon: bool,                                                // = false          // Disable default OS task bar icon flag for secondary viewports. When a viewport doesn't want a task bar icon, ImGuiViewportFlags_NoTaskBarIcon will be set on it.
+    config_viewports_no_decoration: bool,                                                   // = true           // Disable default OS window decoration flag for secondary viewports. When a viewport doesn't want window decorations, ImGuiViewportFlags_NoDecoration will be set on it. Enabling decoration can create subsequent issues at OS levels (e.g. minimum window size).
+    config_viewports_no_default_parent: bool,                                               // = false          // Disable default OS parenting to main viewport for secondary viewports. By default, viewports are marked with ParentViewportId = <main_viewport>, expecting the platform backend to setup a parent/child relationship between the OS windows (some backend may ignore this). Set to true if you want the default to be 0, then all viewports will be top-level OS windows.
     // Miscellaneous options
     mouse_draw_cursor: bool,                                                                // = false          // Request ImGui to draw a mouse cursor for you (if you are on a platform without a mouse cursor). Cannot be easily renamed to 'io.ConfigXXX' because this is frequently used by backend implementations.
     config_mac_osxbehaviors: bool,                                                          // = defined(__APPLE__) // OS X style: Text editing cursor movement using Alt instead of Ctrl, Shortcuts using Cmd/Super instead of Ctrl, Line/Text Start and End using Cmd+Arrows instead of Home/End, Double click selects by word instead of selecting whole text, Multi-selection in lists uses Cmd/Super instead of Ctrl.
@@ -1059,17 +1134,22 @@ pub const IO = extern struct {
     mouse_drag_threshold: f32,                                                              // = 6.0f           // Distance threshold before considering we are dragging.
     key_repeat_delay: f32,                                                                  // = 0.275f         // When holding a key/button, time before it starts repeating, in seconds (for buttons in Repeat mode, etc.).
     key_repeat_rate: f32,                                                                   // = 0.050f         // When holding a key/button, rate at which it repeats, in seconds.
+    // Option to enable various debug tools showing buttons that will call the IM_DEBUG_BREAK() macro.
+    // - The Item Picker tool will be available regardless of this being enabled, in order to maximize its discoverability.
+    // - Requires a debugger being attached, otherwise IM_DEBUG_BREAK() options will appear to crash your application.
+    //   e.g. io.ConfigDebugIsDebuggerPresent = ::IsDebuggerPresent() on Win32, or refer to ImOsIsDebuggerPresent() imgui_test_engine/imgui_te_utils.cpp for a Unix compatible version).
+    config_debug_is_debugger_present: bool,                                                 // = false          // Enable various tools calling IM_DEBUG_BREAK().
     // Tools to test correct Begin/End and BeginChild/EndChild behaviors.
-    // Presently Begin()/End() and BeginChild()/EndChild() needs to ALWAYS be called in tandem, regardless of return value of BeginXXX()
-    // This is inconsistent with other BeginXXX functions and create confusion for many users.
-    // We expect to update the API eventually. In the meanwhile we provide tools to facilitate checking user-code behavior.
+    // - Presently Begin()/End() and BeginChild()/EndChild() needs to ALWAYS be called in tandem, regardless of return value of BeginXXX()
+    // - This is inconsistent with other BeginXXX functions and create confusion for many users.
+    // - We expect to update the API eventually. In the meanwhile we provide tools to facilitate checking user-code behavior.
     config_debug_begin_return_value_once: bool,                                             // = false          // First-time calls to Begin()/BeginChild() will return false. NEEDS TO BE SET AT APPLICATION BOOT TIME if you don't want to miss windows.
     config_debug_begin_return_value_loop: bool,                                             // = false          // Some calls to Begin()/BeginChild() will return false. Will cycle through window depths then repeat. Suggested use: add "io.ConfigDebugBeginReturnValue = io.KeyShift" in your main loop then occasionally press SHIFT. Windows should be flickering while running.
-    // Option to deactivate io.AddFocusEvent(false) handling. May facilitate interactions with a debugger when focus loss leads to clearing inputs data.
-    // Backends may have other side-effects on focus loss, so this will reduce side-effects but not necessary remove all of them.
-    // Consider using e.g. Win32's IsDebuggerPresent() as an additional filter (or see ImOsIsDebuggerPresent() in imgui_test_engine/imgui_te_utils.cpp for a Unix compatible version).
+    // Option to deactivate io.AddFocusEvent(false) handling.
+    // - May facilitate interactions with a debugger when focus loss leads to clearing inputs data.
+    // - Backends may have other side-effects on focus loss, so this will reduce side-effects but not necessary remove all of them.
     config_debug_ignore_focus_loss: bool,                                                   // = false          // Ignore io.AddFocusEvent(false), consequently not calling io.ClearInputKeys() in input processing.
-    // Options to audit .ini data
+    // Option to audit .ini data
     config_debug_ini_settings: bool,                                                        // = false          // Save .ini data with extra comments (particularly helpful for Docking, but makes saving slower)
     // Optional: Platform/Renderer backend name (informational only! will be displayed in About Window) + User data for backend/wrappers to store their own stuff.
     backend_platform_name: ?[*:0]const u8,                                                  // = NULL
@@ -1109,6 +1189,7 @@ pub const IO = extern struct {
     mouse_wheel: f32,                                                                       // Mouse wheel Vertical: 1 unit scrolls about 5 lines text. >0 scrolls Up, <0 scrolls Down. Hold SHIFT to turn vertical scroll into horizontal scroll.
     mouse_wheel_h: f32,                                                                     // Mouse wheel Horizontal. >0 scrolls Left, <0 scrolls Right. Most users don't have a mouse with a horizontal wheel, may not be filled by all backends.
     mouse_source: MouseSource,                                                              // Mouse actual input peripheral (Mouse/TouchScreen/Pen).
+    mouse_hovered_viewport: ID,                                                             // (Optional) Modify using io.AddMouseViewportEvent(). With multi-viewports: viewport the OS mouse is hovering. If possible _IGNORING_ viewports with the ImGuiViewportFlags_NoInputs flag is much better (few backends can handle that). Set io.BackendFlags |= ImGuiBackendFlags_HasMouseHoveredViewport if you can provide this info. If you don't imgui will infer the value using the rectangles and last focused time of the viewports it knows about (ignoring other OS windows).
     key_ctrl: bool,                                                                         // Keyboard modifier down: Control
     key_shift: bool,                                                                        // Keyboard modifier down: Shift
     key_alt: bool,                                                                          // Keyboard modifier down: Alt
@@ -1130,6 +1211,7 @@ pub const IO = extern struct {
     mouse_wheel_request_axis_swap: bool,                                                    // On a non-Mac system, holding SHIFT requests WheelY to perform the equivalent of a WheelX event. On a Mac system this is already enforced by the system.
     mouse_down_duration: [5]f32,                                                            // Duration the mouse button has been down (0.0f == just clicked)
     mouse_down_duration_prev: [5]f32,                                                       // Previous time the mouse button has been down
+    mouse_drag_max_distance_abs: [5]Vec2,                                                   // Maximum distance, absolute, on each axis, of how much mouse has traveled from the clicking point
     mouse_drag_max_distance_sqr: [5]f32,                                                    // Squared maximum distance of how much mouse has traveled from the clicking point (used for moving thresholds)
     pen_pressure: f32,                                                                      // Touch/Pen pressure (0.0f to 1.0f, should be >0.0f only when MouseDown[0] == true). Helper storage currently unused by Dear ImGui.
     app_focus_lost: bool,                                                                   // Only modify via AddFocusEvent()
@@ -1145,6 +1227,7 @@ pub const IO = extern struct {
     pub const addMouseButtonEvent = ImGuiIO_AddMouseButtonEvent;         // Queue a mouse button change
     pub const addMouseWheelEvent = ImGuiIO_AddMouseWheelEvent;           // Queue a mouse wheel update. wheel_y<0: scroll down, wheel_y>0: scroll up, wheel_x<0: scroll right, wheel_x>0: scroll left.
     pub const addMouseSourceEvent = ImGuiIO_AddMouseSourceEvent;         // Queue a mouse source change (Mouse/TouchScreen/Pen)
+    pub const addMouseViewportEvent = ImGuiIO_AddMouseViewportEvent;     // Queue a mouse hovered viewport. Requires backend to set ImGuiBackendFlags_HasMouseHoveredViewport to call this (for multi-viewport support).
     pub const addFocusEvent = ImGuiIO_AddFocusEvent;                     // Queue a gain/loss of focus for the application (generally based on OS/platform focus of your window)
     pub const addInputCharacter = ImGuiIO_AddInputCharacter;             // Queue a new character input
     pub const addInputCharacterUTF16 = ImGuiIO_AddInputCharacterUTF16;   // Queue a new character input from a UTF-16 character, it can be a surrogate
@@ -1198,6 +1281,25 @@ pub const SizeCallbackData = extern struct {
     desired_size: Vec2,     // Read-write.  Desired size, based on user's mouse position. Write to this field to restrain resizing.
 };
 
+// [ALPHA] Rarely used / very advanced uses only. Use with SetNextWindowClass() and DockSpace() functions.
+// Important: the content of this class is still highly WIP and likely to change and be refactored
+// before we stabilize Docking features. Please be mindful if using this.
+// Provide hints:
+// - To the platform backend via altered viewport flags (enable/disable OS decoration, OS task bar icons, etc.)
+// - To the platform backend for OS level parent/child relationships of viewport.
+// - To the docking system for various options and filtering.
+pub const WindowClass = extern struct {
+    class_id: ID,                                 // User data. 0 = Default class (unclassed). Windows of different classes cannot be docked with each others.
+    parent_viewport_id: ID,                       // Hint for the platform backend. -1: use default. 0: request platform backend to not parent the platform. != 0: request platform backend to create a parent<>child relationship between the platform windows. Not conforming backends are free to e.g. parent every viewport to the main viewport or not.
+    focus_route_parent_window_id: ID,             // ID of parent window for shortcut focus route evaluation, e.g. Shortcut() call from Parent Window will succeed when this window is focused.
+    viewport_flags_override_set: ViewportFlags,   // Viewport flags to set when a window of this class owns a viewport. This allows you to enforce OS decoration or task bar icon, override the defaults on a per-window basis.
+    viewport_flags_override_clear: ViewportFlags, // Viewport flags to clear when a window of this class owns a viewport. This allows you to enforce OS decoration or task bar icon, override the defaults on a per-window basis.
+    tab_item_flags_override_set: TabItemFlags,    // [EXPERIMENTAL] TabItem flags to set when a window of this class gets submitted into a dock node tab bar. May use with ImGuiTabItemFlags_Leading or ImGuiTabItemFlags_Trailing.
+    dock_node_flags_override_set: DockNodeFlags,  // [EXPERIMENTAL] Dock node flags to set when a window of this class is hosted by a dock node (it doesn't have to be selected!)
+    docking_always_tab_bar: bool,                 // Set to true to enforce single floating windows of this class always having their own docking node (equivalent of setting the global io.ConfigDockingAlwaysTabBar)
+    docking_allow_unclassed: bool,                // Set to true to allow windows of this class to be docked/merged with an unclassed window. // FIXME-DOCK: Move to DockNodeFlags override?
+};
+
 // Data payload for Drag and Drop operations: AcceptDragDropPayload(), GetDragDropPayload()
 pub const Payload = extern struct {
     // Members
@@ -1214,24 +1316,6 @@ pub const Payload = extern struct {
     pub const isDataType = ImGuiPayload_IsDataType;
     pub const isPreview = ImGuiPayload_IsPreview;
     pub const isDelivery = ImGuiPayload_IsDelivery;
-};
-
-// Sorting specification for one column of a table (sizeof == 12 bytes)
-pub const TableColumnSortSpecs = extern struct {
-    column_user_id: ID,            // User id of the column (if specified by a TableSetupColumn() call)
-    column_index: S16,             // Index of the column
-    sort_order: S16,               // Index within parent ImGuiTableSortSpecs (always stored in order starting from 0, tables sorted on a single criteria will always have a 0 here)
-    sort_direction: SortDirection, // ImGuiSortDirection_Ascending or ImGuiSortDirection_Descending
-};
-
-// Sorting specifications for a table (often handling sort specs for a single column, occasionally more)
-// Obtained by calling TableGetSortSpecs().
-// When 'SpecsDirty == true' you can sort your data. It will be true with sorting specs have changed since last call, or the first time.
-// Make sure to set 'SpecsDirty = false' after sorting, else you may wastefully sort your data every frame!
-pub const TableSortSpecs = extern struct {
-    specs: ?[*]const TableColumnSortSpecs, // Pointer to sort spec array.
-    specs_count: c_int,                    // Sort spec count. Most often 1. May be > 1 when ImGuiTableFlags_SortMulti is enabled. May be == 0 when ImGuiTableFlags_SortTristate is enabled.
-    specs_dirty: bool,                     // Set to true when specs have changed since last time! Use this to sort again, then clear the flag.
 };
 
 // [Internal]
@@ -1497,7 +1581,8 @@ pub const DrawList = extern struct {
     pub const addImageQuadEx = ImDrawList_AddImageQuadEx;
     pub const addImageRounded = ImDrawList_AddImageRounded;
     // Stateful path API, add points then finish with PathFillConvex() or PathStroke()
-    // - Filled shapes must always use clockwise winding order. The anti-aliasing fringe depends on it. Counter-clockwise shapes will have "inward" anti-aliasing.
+    // - Important: filled shapes must always use clockwise winding order! The anti-aliasing fringe depends on it. Counter-clockwise shapes will have "inward" anti-aliasing.
+    //   so e.g. 'PathArcTo(center, radius, PI * -0.5f, PI)' is ok, whereas 'PathArcTo(center, radius, PI, PI * -0.5f)' won't have correct anti-aliasing when followed by PathFillConvex().
     pub const pathClear = ImDrawList_PathClear;
     pub const pathLineTo = ImDrawList_PathLineTo;
     pub const pathLineToMergeDuplicate = ImDrawList_PathLineToMergeDuplicate;
@@ -1552,7 +1637,7 @@ pub const DrawList = extern struct {
 // as this is one of the oldest structure exposed by the library! Basically, ImDrawList == CmdList)
 pub const DrawData = extern struct {
     valid: bool,                  // Only valid after Render() is called and before the next NewFrame() is called.
-    cmd_lists_count: c_int,       // Number of ImDrawList* to render (should always be == CmdLists.size)
+    cmd_lists_count: c_int,       // Number of ImDrawList* to render
     total_idx_count: c_int,       // For convenience, sum of all ImDrawList's IdxBuffer.Size
     total_vtx_count: c_int,       // For convenience, sum of all ImDrawList's VtxBuffer.Size
     cmd_lists: Vector(*DrawList), // Array of ImDrawList* to render. The ImDrawLists are owned by ImGuiContext and only pointed to from here.
@@ -1774,23 +1859,85 @@ pub const Font = extern struct {
 };
 
 // - Currently represents the Platform Window created by the application which is hosting our Dear ImGui windows.
-// - In 'docking' branch with multi-viewport enabled, we extend this concept to have multiple active viewports.
+// - With multi-viewport enabled, we extend this concept to have multiple active viewports.
 // - In the future we will extend this concept further to also represent Platform Monitor and support a "no main platform window" operation mode.
 // - About Main Area vs Work Area:
 //   - Main Area = entire viewport.
 //   - Work Area = entire viewport minus sections used by main menu bars (for platform windows), or by task bar (for platform monitor).
 //   - Windows are generally trying to stay within the Work Area of their host viewport.
 pub const Viewport = extern struct {
+    id: ID,                           // Unique identifier for the viewport
     flags: ViewportFlags,             // See ImGuiViewportFlags_
     pos: Vec2,                        // Main Area: Position of the viewport (Dear ImGui coordinates are the same as OS desktop/native coordinates)
     size: Vec2,                       // Main Area: Size of the viewport.
     work_pos: Vec2,                   // Work Area: Position of the viewport minus task bars, menus bars, status bars (>= Pos)
     work_size: Vec2,                  // Work Area: Size of the viewport minus task bars, menu bars, status bars (<= Size)
+    dpi_scale: f32,                   // 1.0f = 96 DPI = No extra scale.
+    parent_viewport_id: ID,           // (Advanced) 0: no parent. Instruct the platform backend to setup a parent/child relationship between platform windows.
+    draw_data: ?*DrawData,            // The ImDrawData corresponding to this viewport. Valid after Render() and until the next call to NewFrame().
     // Platform/Backend Dependent Data
-    platform_handle_raw: ?*anyopaque, // void* to hold lower-level, platform-native window handle (under Win32 this is expected to be a HWND, unused for other platforms)
+    // Our design separate the Renderer and Platform backends to facilitate combining default backends with each others.
+    // When our create your own backend for a custom engine, it is possible that both Renderer and Platform will be handled
+    // by the same system and you may not need to use all the UserData/Handle fields.
+    // The library never uses those fields, they are merely storage to facilitate backend implementation.
+    renderer_user_data: ?*anyopaque,  // void* to hold custom data structure for the renderer (e.g. swap chain, framebuffers etc.). generally set by your Renderer_CreateWindow function.
+    platform_user_data: ?*anyopaque,  // void* to hold custom data structure for the OS / platform (e.g. windowing info, render context). generally set by your Platform_CreateWindow function.
+    platform_handle: ?*anyopaque,     // void* for FindViewportByPlatformHandle(). (e.g. suggested to use natural platform handle such as HWND, GLFWWindow*, SDL_Window*)
+    platform_handle_raw: ?*anyopaque, // void* to hold lower-level, platform-native window handle (under Win32 this is expected to be a HWND, unused for other platforms), when using an abstraction layer like GLFW or SDL (where PlatformHandle would be a SDL_Window*)
+    platform_window_created: bool,    // Platform window has been created (Platform_CreateWindow() has been called). This is false during the first frame where a viewport is being created.
+    platform_request_move: bool,      // Platform window requested move (e.g. window was moved by the OS / host window manager, authoritative position will be OS window position)
+    platform_request_resize: bool,    // Platform window requested resize (e.g. window was resized by the OS / host window manager, authoritative size will be OS window size)
+    platform_request_close: bool,     // Platform window requested closure (e.g. window was moved by the OS / host window manager, e.g. pressing ALT-F4)
     // Helpers
     pub const getCenter = ImGuiViewport_GetCenter;
     pub const getWorkCenter = ImGuiViewport_GetWorkCenter;
+};
+
+// (Optional) Access via ImGui::GetPlatformIO()
+pub const PlatformIO = extern struct {
+    // Platform function --------------------------------------------------- Called by -----
+    platform_create_window: ?*const fn (?*Viewport) callconv(.C) void,                               // . . U . .  // Create a new platform window for the given viewport
+    platform_destroy_window: ?*const fn (?*Viewport) callconv(.C) void,                              // N . U . D  //
+    platform_show_window: ?*const fn (?*Viewport) callconv(.C) void,                                 // . . U . .  // Newly created windows are initially hidden so SetWindowPos/Size/Title can be called on them before showing the window
+    platform_set_window_pos: ?*const fn (?*Viewport, Vec2) callconv(.C) void,                        // . . U . .  // Set platform window position (given the upper-left corner of client area)
+    platform_get_window_pos: ?*const fn (?*Viewport) callconv(.C) Vec2,                              // N . . . .  //
+    platform_set_window_size: ?*const fn (?*Viewport, Vec2) callconv(.C) void,                       // . . U . .  // Set platform window client area size (ignoring OS decorations such as OS title bar etc.)
+    platform_get_window_size: ?*const fn (?*Viewport) callconv(.C) Vec2,                             // N . . . .  // Get platform window client area size
+    platform_set_window_focus: ?*const fn (?*Viewport) callconv(.C) void,                            // N . . . .  // Move window to front and set input focus
+    platform_get_window_focus: ?*const fn (?*Viewport) callconv(.C) bool,                            // . . U . .  //
+    platform_get_window_minimized: ?*const fn (?*Viewport) callconv(.C) bool,                        // N . . . .  // Get platform window minimized state. When minimized, we generally won't attempt to get/set size and contents will be culled more easily
+    platform_set_window_title: ?*const fn (?*Viewport, ?[*:0]const u8) callconv(.C) void,            // . . U . .  // Set platform window title (given an UTF-8 string)
+    platform_set_window_alpha: ?*const fn (?*Viewport, f32) callconv(.C) void,                       // . . U . .  // (Optional) Setup global transparency (not per-pixel transparency)
+    platform_update_window: ?*const fn (?*Viewport) callconv(.C) void,                               // . . U . .  // (Optional) Called by UpdatePlatformWindows(). Optional hook to allow the platform backend from doing general book-keeping every frame.
+    platform_render_window: ?*const fn (?*Viewport, ?*anyopaque) callconv(.C) void,                  // . . . R .  // (Optional) Main rendering (platform side! This is often unused, or just setting a "current" context for OpenGL bindings). 'render_arg' is the value passed to RenderPlatformWindowsDefault().
+    platform_swap_buffers: ?*const fn (?*Viewport, ?*anyopaque) callconv(.C) void,                   // . . . R .  // (Optional) Call Present/SwapBuffers (platform side! This is often unused!). 'render_arg' is the value passed to RenderPlatformWindowsDefault().
+    platform_get_window_dpi_scale: ?*const fn (?*Viewport) callconv(.C) f32,                         // N . . . .  // (Optional) [BETA] FIXME-DPI: DPI handling: Return DPI scale for this viewport. 1.0f = 96 DPI.
+    platform_on_changed_viewport: ?*const fn (?*Viewport) callconv(.C) void,                         // . F . . .  // (Optional) [BETA] FIXME-DPI: DPI handling: Called during Begin() every time the viewport we are outputting into changes, so backend has a chance to swap fonts to adjust style.
+    platform_create_vk_surface: ?*const fn (?*Viewport, U64, ?*anyopaque, ?*U64) callconv(.C) c_int, // (Optional) For a Vulkan Renderer to call into Platform code (since the surface creation needs to tie them both).
+    // (Optional) Renderer functions (e.g. DirectX, OpenGL, Vulkan)
+    renderer_create_window: ?*const fn (?*Viewport) callconv(.C) void,                               // . . U . .  // Create swap chain, frame buffers etc. (called after Platform_CreateWindow)
+    renderer_destroy_window: ?*const fn (?*Viewport) callconv(.C) void,                              // N . U . D  // Destroy swap chain, frame buffers etc. (called before Platform_DestroyWindow)
+    renderer_set_window_size: ?*const fn (?*Viewport, Vec2) callconv(.C) void,                       // . . U . .  // Resize swap chain, frame buffers etc. (called after Platform_SetWindowSize)
+    renderer_render_window: ?*const fn (?*Viewport, ?*anyopaque) callconv(.C) void,                  // . . . R .  // (Optional) Clear framebuffer, setup render target, then render the viewport->DrawData. 'render_arg' is the value passed to RenderPlatformWindowsDefault().
+    renderer_swap_buffers: ?*const fn (?*Viewport, ?*anyopaque) callconv(.C) void,                   // . . . R .  // (Optional) Call Present/SwapBuffers. 'render_arg' is the value passed to RenderPlatformWindowsDefault().
+    // (Optional) Monitor list
+    // - Updated by: app/backend. Update every frame to dynamically support changing monitor or DPI configuration.
+    // - Used by: dear imgui to query DPI info, clamp popups/tooltips within same monitor and not have them straddle monitors.
+    monitors: Vector(PlatformMonitor),
+    // Viewports list (the list is updated by calling ImGui::EndFrame or ImGui::Render)
+    // (in the future we will attempt to organize this feature to remove the need for a "main viewport")
+    viewports: Vector(*Viewport),                                                                    // Main viewports, followed by all secondary viewports.
+};
+
+// (Optional) This is required when enabling multi-viewport. Represent the bounds of each connected monitor/display and their DPI.
+// We use this information for multiple DPI support + clamping the position of popups and tooltips so they don't straddle multiple monitors.
+pub const PlatformMonitor = extern struct {
+    main_pos: Vec2,               // Coordinates of the area displayed on this monitor (Min = upper left, Max = bottom right)
+    main_size: Vec2,              // Coordinates of the area displayed on this monitor (Min = upper left, Max = bottom right)
+    work_pos: Vec2,               // Coordinates without task bars / side bars / menu bars. Used to avoid positioning popups/tooltips inside this region. If you don't have this info, please copy the value for MainPos/MainSize.
+    work_size: Vec2,              // Coordinates without task bars / side bars / menu bars. Used to avoid positioning popups/tooltips inside this region. If you don't have this info, please copy the value for MainPos/MainSize.
+    dpi_scale: f32,               // 1.0f = 96 DPI
+    platform_handle: ?*anyopaque, // Backend dependant data (e.g. HMONITOR, GLFWmonitor*, SDL Display Index, NSScreen*)
 };
 
 // (Optional) Support for IME (Input Method Editor) via the io.SetPlatformImeDataFn() function.
@@ -1812,32 +1959,32 @@ pub fn setZigAllocator(allocator: *std.mem.Allocator) void {
 // - DLL users: heaps and globals are not shared across DLL boundaries! You will need to call SetCurrentContext() + SetAllocatorFunctions()
 //   for each static/DLL boundary you are calling from. Read "Context and Memory Allocators" section of imgui.cpp for details.
 pub const createContext = ImGui_CreateContext;
-pub const destroyContext = ImGui_DestroyContext;                                     // NULL = destroy current context
+pub const destroyContext = ImGui_DestroyContext;                                               // NULL = destroy current context
 pub const getCurrentContext = ImGui_GetCurrentContext;
 pub const setCurrentContext = ImGui_SetCurrentContext;
 // Main
-pub const getIO = ImGui_GetIO;                                                       // access the IO structure (mouse/keyboard/gamepad inputs, time, various configuration options/flags)
-pub const getStyle = ImGui_GetStyle;                                                 // access the Style structure (colors, sizes). Always use PushStyleCol(), PushStyleVar() to modify style mid-frame!
-pub const newFrame = ImGui_NewFrame;                                                 // start a new Dear ImGui frame, you can submit any command from this point until Render()/EndFrame().
-pub const endFrame = ImGui_EndFrame;                                                 // ends the Dear ImGui frame. automatically called by Render(). If you don't need to render data (skipping rendering) you may call EndFrame() without Render()... but you'll have wasted CPU already! If you don't need to render, better to not create any windows and not call NewFrame() at all!
-pub const render = ImGui_Render;                                                     // ends the Dear ImGui frame, finalize the draw data. You can then get call GetDrawData().
-pub const getDrawData = ImGui_GetDrawData;                                           // valid after Render() and until the next call to NewFrame(). this is what you have to render.
+pub const getIO = ImGui_GetIO;                                                                 // access the IO structure (mouse/keyboard/gamepad inputs, time, various configuration options/flags)
+pub const getStyle = ImGui_GetStyle;                                                           // access the Style structure (colors, sizes). Always use PushStyleColor(), PushStyleVar() to modify style mid-frame!
+pub const newFrame = ImGui_NewFrame;                                                           // start a new Dear ImGui frame, you can submit any command from this point until Render()/EndFrame().
+pub const endFrame = ImGui_EndFrame;                                                           // ends the Dear ImGui frame. automatically called by Render(). If you don't need to render data (skipping rendering) you may call EndFrame() without Render()... but you'll have wasted CPU already! If you don't need to render, better to not create any windows and not call NewFrame() at all!
+pub const render = ImGui_Render;                                                               // ends the Dear ImGui frame, finalize the draw data. You can then get call GetDrawData().
+pub const getDrawData = ImGui_GetDrawData;                                                     // valid after Render() and until the next call to NewFrame(). this is what you have to render.
 // Demo, Debug, Information
-pub const showDemoWindow = ImGui_ShowDemoWindow;                                     // create Demo window. demonstrate most ImGui features. call this to learn about the library! try to make it always available in your application!
-pub const showMetricsWindow = ImGui_ShowMetricsWindow;                               // create Metrics/Debugger window. display Dear ImGui internals: windows, draw commands, various internal state, etc.
-pub const showDebugLogWindow = ImGui_ShowDebugLogWindow;                             // create Debug Log window. display a simplified log of important dear imgui events.
-pub const showIDStackToolWindow = ImGui_ShowIDStackToolWindow;                       // Implied p_open = NULL
-pub const showIDStackToolWindowEx = ImGui_ShowIDStackToolWindowEx;                   // create Stack Tool window. hover items with mouse to query information about the source of their unique ID.
-pub const showAboutWindow = ImGui_ShowAboutWindow;                                   // create About window. display Dear ImGui version, credits and build/system information.
-pub const showStyleEditor = ImGui_ShowStyleEditor;                                   // add style editor block (not a window). you can pass in a reference ImGuiStyle structure to compare to, revert to and save to (else it uses the default style)
-pub const showStyleSelector = ImGui_ShowStyleSelector;                               // add style selector block (not a window), essentially a combo listing the default styles.
-pub const showFontSelector = ImGui_ShowFontSelector;                                 // add font selector block (not a window), essentially a combo listing the loaded fonts.
-pub const showUserGuide = ImGui_ShowUserGuide;                                       // add basic help/info block (not a window): how to manipulate ImGui as an end-user (mouse/keyboard controls).
-pub const getVersion = ImGui_GetVersion;                                             // get the compiled version string e.g. "1.80 WIP" (essentially the value for IMGUI_VERSION from the compiled version of imgui.cpp)
+pub const showDemoWindow = ImGui_ShowDemoWindow;                                               // create Demo window. demonstrate most ImGui features. call this to learn about the library! try to make it always available in your application!
+pub const showMetricsWindow = ImGui_ShowMetricsWindow;                                         // create Metrics/Debugger window. display Dear ImGui internals: windows, draw commands, various internal state, etc.
+pub const showDebugLogWindow = ImGui_ShowDebugLogWindow;                                       // create Debug Log window. display a simplified log of important dear imgui events.
+pub const showIDStackToolWindow = ImGui_ShowIDStackToolWindow;                                 // Implied p_open = NULL
+pub const showIDStackToolWindowEx = ImGui_ShowIDStackToolWindowEx;                             // create Stack Tool window. hover items with mouse to query information about the source of their unique ID.
+pub const showAboutWindow = ImGui_ShowAboutWindow;                                             // create About window. display Dear ImGui version, credits and build/system information.
+pub const showStyleEditor = ImGui_ShowStyleEditor;                                             // add style editor block (not a window). you can pass in a reference ImGuiStyle structure to compare to, revert to and save to (else it uses the default style)
+pub const showStyleSelector = ImGui_ShowStyleSelector;                                         // add style selector block (not a window), essentially a combo listing the default styles.
+pub const showFontSelector = ImGui_ShowFontSelector;                                           // add font selector block (not a window), essentially a combo listing the loaded fonts.
+pub const showUserGuide = ImGui_ShowUserGuide;                                                 // add basic help/info block (not a window): how to manipulate ImGui as an end-user (mouse/keyboard controls).
+pub const getVersion = ImGui_GetVersion;                                                       // get the compiled version string e.g. "1.80 WIP" (essentially the value for IMGUI_VERSION from the compiled version of imgui.cpp)
 // Styles
-pub const styleColorsDark = ImGui_StyleColorsDark;                                   // new, recommended style (default)
-pub const styleColorsLight = ImGui_StyleColorsLight;                                 // best used with borders and a custom, thicker font
-pub const styleColorsClassic = ImGui_StyleColorsClassic;                             // classic imgui style
+pub const styleColorsDark = ImGui_StyleColorsDark;                                             // new, recommended style (default)
+pub const styleColorsLight = ImGui_StyleColorsLight;                                           // best used with borders and a custom, thicker font
+pub const styleColorsClassic = ImGui_StyleColorsClassic;                                       // classic imgui style
 // Windows
 // - Begin() = push window to the stack and start appending to it. End() = pop window from the stack.
 // - Passing 'bool* p_open != NULL' shows a window-closing widget in the upper-right corner of the window,
@@ -1856,7 +2003,7 @@ pub const end = ImGui_End;
 // - Use child windows to begin into a self-contained independent scrolling/clipping regions within a host window. Child windows can embed their own child.
 // - Before 1.90 (November 2023), the "ImGuiChildFlags child_flags = 0" parameter was "bool border = false".
 //   This API is backward compatible with old code, as we guarantee that ImGuiChildFlags_Border == true.
-//   Consider updating your old call sites:
+//   Consider updating your old code:
 //      BeginChild("Name", size, false)   -> Begin("Name", size, 0); or Begin("Name", size, ImGuiChildFlags_None);
 //      BeginChild("Name", size, true)    -> Begin("Name", size, ImGuiChildFlags_Border);
 // - Manual sizing (each axis can use a different setting e.g. ImVec2(0.0f, 400.0f)):
@@ -1877,85 +2024,89 @@ pub const endChild = ImGui_EndChild;
 // - 'current window' = the window we are appending into while inside a Begin()/End() block. 'next window' = next window we will Begin() into.
 pub const isWindowAppearing = ImGui_IsWindowAppearing;
 pub const isWindowCollapsed = ImGui_IsWindowCollapsed;
-pub const isWindowFocused = ImGui_IsWindowFocused;                                   // is current window focused? or its root/child, depending on flags. see flags for options.
-pub const isWindowHovered = ImGui_IsWindowHovered;                                   // is current window hovered and hoverable (e.g. not blocked by a popup/modal)? See ImGuiHoveredFlags_ for options. IMPORTANT: If you are trying to check whether your mouse should be dispatched to Dear ImGui or to your underlying app, you should not use this function! Use the 'io.WantCaptureMouse' boolean for that! Refer to FAQ entry "How can I tell whether to dispatch mouse/keyboard to Dear ImGui or my application?" for details.
-pub const getWindowDrawList = ImGui_GetWindowDrawList;                               // get draw list associated to the current window, to append your own drawing primitives
-pub const getWindowPos = ImGui_GetWindowPos;                                         // get current window position in screen space (note: it is unlikely you need to use this. Consider using current layout pos instead, GetCursorScreenPos())
-pub const getWindowSize = ImGui_GetWindowSize;                                       // get current window size (note: it is unlikely you need to use this. Consider using GetCursorScreenPos() and e.g. GetContentRegionAvail() instead)
-pub const getWindowWidth = ImGui_GetWindowWidth;                                     // get current window width (shortcut for GetWindowSize().x)
-pub const getWindowHeight = ImGui_GetWindowHeight;                                   // get current window height (shortcut for GetWindowSize().y)
+pub const isWindowFocused = ImGui_IsWindowFocused;                                             // is current window focused? or its root/child, depending on flags. see flags for options.
+pub const isWindowHovered = ImGui_IsWindowHovered;                                             // is current window hovered and hoverable (e.g. not blocked by a popup/modal)? See ImGuiHoveredFlags_ for options. IMPORTANT: If you are trying to check whether your mouse should be dispatched to Dear ImGui or to your underlying app, you should not use this function! Use the 'io.WantCaptureMouse' boolean for that! Refer to FAQ entry "How can I tell whether to dispatch mouse/keyboard to Dear ImGui or my application?" for details.
+pub const getWindowDrawList = ImGui_GetWindowDrawList;                                         // get draw list associated to the current window, to append your own drawing primitives
+pub const getWindowDpiScale = ImGui_GetWindowDpiScale;                                         // get DPI scale currently associated to the current window's viewport.
+pub const getWindowPos = ImGui_GetWindowPos;                                                   // get current window position in screen space (note: it is unlikely you need to use this. Consider using current layout pos instead, GetCursorScreenPos())
+pub const getWindowSize = ImGui_GetWindowSize;                                                 // get current window size (note: it is unlikely you need to use this. Consider using GetCursorScreenPos() and e.g. GetContentRegionAvail() instead)
+pub const getWindowWidth = ImGui_GetWindowWidth;                                               // get current window width (shortcut for GetWindowSize().x)
+pub const getWindowHeight = ImGui_GetWindowHeight;                                             // get current window height (shortcut for GetWindowSize().y)
+pub const getWindowViewport = ImGui_GetWindowViewport;                                         // get viewport currently associated to the current window.
 // Window manipulation
 // - Prefer using SetNextXXX functions (before Begin) rather that SetXXX functions (after Begin).
-pub const setNextWindowPos = ImGui_SetNextWindowPos;                                 // Implied pivot = ImVec2(0, 0)
-pub const setNextWindowPosEx = ImGui_SetNextWindowPosEx;                             // set next window position. call before Begin(). use pivot=(0.5f,0.5f) to center on given point, etc.
-pub const setNextWindowSize = ImGui_SetNextWindowSize;                               // set next window size. set axis to 0.0f to force an auto-fit on this axis. call before Begin()
-pub const setNextWindowSizeConstraints = ImGui_SetNextWindowSizeConstraints;         // set next window size limits. use 0.0f or FLT_MAX if you don't want limits. Use -1 for both min and max of same axis to preserve current size (which itself is a constraint). Use callback to apply non-trivial programmatic constraints.
-pub const setNextWindowContentSize = ImGui_SetNextWindowContentSize;                 // set next window content size (~ scrollable client area, which enforce the range of scrollbars). Not including window decorations (title bar, menu bar, etc.) nor WindowPadding. set an axis to 0.0f to leave it automatic. call before Begin()
-pub const setNextWindowCollapsed = ImGui_SetNextWindowCollapsed;                     // set next window collapsed state. call before Begin()
-pub const setNextWindowFocus = ImGui_SetNextWindowFocus;                             // set next window to be focused / top-most. call before Begin()
-pub const setNextWindowScroll = ImGui_SetNextWindowScroll;                           // set next window scrolling value (use < 0.0f to not affect a given axis).
-pub const setNextWindowBgAlpha = ImGui_SetNextWindowBgAlpha;                         // set next window background color alpha. helper to easily override the Alpha component of ImGuiCol_WindowBg/ChildBg/PopupBg. you may also use ImGuiWindowFlags_NoBackground.
-pub const setWindowPos = ImGui_SetWindowPos;                                         // (not recommended) set current window position - call within Begin()/End(). prefer using SetNextWindowPos(), as this may incur tearing and side-effects.
-pub const setWindowSize = ImGui_SetWindowSize;                                       // (not recommended) set current window size - call within Begin()/End(). set to ImVec2(0, 0) to force an auto-fit. prefer using SetNextWindowSize(), as this may incur tearing and minor side-effects.
-pub const setWindowCollapsed = ImGui_SetWindowCollapsed;                             // (not recommended) set current window collapsed state. prefer using SetNextWindowCollapsed().
-pub const setWindowFocus = ImGui_SetWindowFocus;                                     // (not recommended) set current window to be focused / top-most. prefer using SetNextWindowFocus().
-pub const setWindowFontScale = ImGui_SetWindowFontScale;                             // [OBSOLETE] set font scale. Adjust IO.FontGlobalScale if you want to scale all windows. This is an old API! For correct scaling, prefer to reload font + rebuild ImFontAtlas + call style.ScaleAllSizes().
-pub const setWindowPosStr = ImGui_SetWindowPosStr;                                   // set named window position.
-pub const setWindowSizeStr = ImGui_SetWindowSizeStr;                                 // set named window size. set axis to 0.0f to force an auto-fit on this axis.
-pub const setWindowCollapsedStr = ImGui_SetWindowCollapsedStr;                       // set named window collapsed state
-pub const setWindowFocusStr = ImGui_SetWindowFocusStr;                               // set named window to be focused / top-most. use NULL to remove focus.
+pub const setNextWindowPos = ImGui_SetNextWindowPos;                                           // Implied pivot = ImVec2(0, 0)
+pub const setNextWindowPosEx = ImGui_SetNextWindowPosEx;                                       // set next window position. call before Begin(). use pivot=(0.5f,0.5f) to center on given point, etc.
+pub const setNextWindowSize = ImGui_SetNextWindowSize;                                         // set next window size. set axis to 0.0f to force an auto-fit on this axis. call before Begin()
+pub const setNextWindowSizeConstraints = ImGui_SetNextWindowSizeConstraints;                   // set next window size limits. use 0.0f or FLT_MAX if you don't want limits. Use -1 for both min and max of same axis to preserve current size (which itself is a constraint). Use callback to apply non-trivial programmatic constraints.
+pub const setNextWindowContentSize = ImGui_SetNextWindowContentSize;                           // set next window content size (~ scrollable client area, which enforce the range of scrollbars). Not including window decorations (title bar, menu bar, etc.) nor WindowPadding. set an axis to 0.0f to leave it automatic. call before Begin()
+pub const setNextWindowCollapsed = ImGui_SetNextWindowCollapsed;                               // set next window collapsed state. call before Begin()
+pub const setNextWindowFocus = ImGui_SetNextWindowFocus;                                       // set next window to be focused / top-most. call before Begin()
+pub const setNextWindowScroll = ImGui_SetNextWindowScroll;                                     // set next window scrolling value (use < 0.0f to not affect a given axis).
+pub const setNextWindowBgAlpha = ImGui_SetNextWindowBgAlpha;                                   // set next window background color alpha. helper to easily override the Alpha component of ImGuiCol_WindowBg/ChildBg/PopupBg. you may also use ImGuiWindowFlags_NoBackground.
+pub const setNextWindowViewport = ImGui_SetNextWindowViewport;                                 // set next window viewport
+pub const setWindowPos = ImGui_SetWindowPos;                                                   // (not recommended) set current window position - call within Begin()/End(). prefer using SetNextWindowPos(), as this may incur tearing and side-effects.
+pub const setWindowSize = ImGui_SetWindowSize;                                                 // (not recommended) set current window size - call within Begin()/End(). set to ImVec2(0, 0) to force an auto-fit. prefer using SetNextWindowSize(), as this may incur tearing and minor side-effects.
+pub const setWindowCollapsed = ImGui_SetWindowCollapsed;                                       // (not recommended) set current window collapsed state. prefer using SetNextWindowCollapsed().
+pub const setWindowFocus = ImGui_SetWindowFocus;                                               // (not recommended) set current window to be focused / top-most. prefer using SetNextWindowFocus().
+pub const setWindowFontScale = ImGui_SetWindowFontScale;                                       // [OBSOLETE] set font scale. Adjust IO.FontGlobalScale if you want to scale all windows. This is an old API! For correct scaling, prefer to reload font + rebuild ImFontAtlas + call style.ScaleAllSizes().
+pub const setWindowPosStr = ImGui_SetWindowPosStr;                                             // set named window position.
+pub const setWindowSizeStr = ImGui_SetWindowSizeStr;                                           // set named window size. set axis to 0.0f to force an auto-fit on this axis.
+pub const setWindowCollapsedStr = ImGui_SetWindowCollapsedStr;                                 // set named window collapsed state
+pub const setWindowFocusStr = ImGui_SetWindowFocusStr;                                         // set named window to be focused / top-most. use NULL to remove focus.
 // Content region
 // - Retrieve available space from a given point. GetContentRegionAvail() is frequently useful.
 // - Those functions are bound to be redesigned (they are confusing, incomplete and the Min/Max return values are in local window coordinates which increases confusion)
-pub const getContentRegionAvail = ImGui_GetContentRegionAvail;                       // == GetContentRegionMax() - GetCursorPos()
-pub const getContentRegionMax = ImGui_GetContentRegionMax;                           // current content boundaries (typically window boundaries including scrolling, or current column boundaries), in windows coordinates
-pub const getWindowContentRegionMin = ImGui_GetWindowContentRegionMin;               // content boundaries min for the full window (roughly (0,0)-Scroll), in window coordinates
-pub const getWindowContentRegionMax = ImGui_GetWindowContentRegionMax;               // content boundaries max for the full window (roughly (0,0)+Size-Scroll) where Size can be overridden with SetNextWindowContentSize(), in window coordinates
+pub const getContentRegionAvail = ImGui_GetContentRegionAvail;                                 // == GetContentRegionMax() - GetCursorPos()
+pub const getContentRegionMax = ImGui_GetContentRegionMax;                                     // current content boundaries (typically window boundaries including scrolling, or current column boundaries), in windows coordinates
+pub const getWindowContentRegionMin = ImGui_GetWindowContentRegionMin;                         // content boundaries min for the full window (roughly (0,0)-Scroll), in window coordinates
+pub const getWindowContentRegionMax = ImGui_GetWindowContentRegionMax;                         // content boundaries max for the full window (roughly (0,0)+Size-Scroll) where Size can be overridden with SetNextWindowContentSize(), in window coordinates
 // Windows Scrolling
 // - Any change of Scroll will be applied at the beginning of next frame in the first call to Begin().
 // - You may instead use SetNextWindowScroll() prior to calling Begin() to avoid this delay, as an alternative to using SetScrollX()/SetScrollY().
-pub const getScrollX = ImGui_GetScrollX;                                             // get scrolling amount [0 .. GetScrollMaxX()]
-pub const getScrollY = ImGui_GetScrollY;                                             // get scrolling amount [0 .. GetScrollMaxY()]
-pub const setScrollX = ImGui_SetScrollX;                                             // set scrolling amount [0 .. GetScrollMaxX()]
-pub const setScrollY = ImGui_SetScrollY;                                             // set scrolling amount [0 .. GetScrollMaxY()]
-pub const getScrollMaxX = ImGui_GetScrollMaxX;                                       // get maximum scrolling amount ~~ ContentSize.x - WindowSize.x - DecorationsSize.x
-pub const getScrollMaxY = ImGui_GetScrollMaxY;                                       // get maximum scrolling amount ~~ ContentSize.y - WindowSize.y - DecorationsSize.y
-pub const setScrollHereX = ImGui_SetScrollHereX;                                     // adjust scrolling amount to make current cursor position visible. center_x_ratio=0.0: left, 0.5: center, 1.0: right. When using to make a "default/current item" visible, consider using SetItemDefaultFocus() instead.
-pub const setScrollHereY = ImGui_SetScrollHereY;                                     // adjust scrolling amount to make current cursor position visible. center_y_ratio=0.0: top, 0.5: center, 1.0: bottom. When using to make a "default/current item" visible, consider using SetItemDefaultFocus() instead.
-pub const setScrollFromPosX = ImGui_SetScrollFromPosX;                               // adjust scrolling amount to make given position visible. Generally GetCursorStartPos() + offset to compute a valid position.
-pub const setScrollFromPosY = ImGui_SetScrollFromPosY;                               // adjust scrolling amount to make given position visible. Generally GetCursorStartPos() + offset to compute a valid position.
+pub const getScrollX = ImGui_GetScrollX;                                                       // get scrolling amount [0 .. GetScrollMaxX()]
+pub const getScrollY = ImGui_GetScrollY;                                                       // get scrolling amount [0 .. GetScrollMaxY()]
+pub const setScrollX = ImGui_SetScrollX;                                                       // set scrolling amount [0 .. GetScrollMaxX()]
+pub const setScrollY = ImGui_SetScrollY;                                                       // set scrolling amount [0 .. GetScrollMaxY()]
+pub const getScrollMaxX = ImGui_GetScrollMaxX;                                                 // get maximum scrolling amount ~~ ContentSize.x - WindowSize.x - DecorationsSize.x
+pub const getScrollMaxY = ImGui_GetScrollMaxY;                                                 // get maximum scrolling amount ~~ ContentSize.y - WindowSize.y - DecorationsSize.y
+pub const setScrollHereX = ImGui_SetScrollHereX;                                               // adjust scrolling amount to make current cursor position visible. center_x_ratio=0.0: left, 0.5: center, 1.0: right. When using to make a "default/current item" visible, consider using SetItemDefaultFocus() instead.
+pub const setScrollHereY = ImGui_SetScrollHereY;                                               // adjust scrolling amount to make current cursor position visible. center_y_ratio=0.0: top, 0.5: center, 1.0: bottom. When using to make a "default/current item" visible, consider using SetItemDefaultFocus() instead.
+pub const setScrollFromPosX = ImGui_SetScrollFromPosX;                                         // adjust scrolling amount to make given position visible. Generally GetCursorStartPos() + offset to compute a valid position.
+pub const setScrollFromPosY = ImGui_SetScrollFromPosY;                                         // adjust scrolling amount to make given position visible. Generally GetCursorStartPos() + offset to compute a valid position.
 // Parameters stacks (shared)
-pub const pushFont = ImGui_PushFont;                                                 // use NULL as a shortcut to push default font
+pub const pushFont = ImGui_PushFont;                                                           // use NULL as a shortcut to push default font
 pub const popFont = ImGui_PopFont;
-pub const pushStyleColor = ImGui_PushStyleColor;                                     // modify a style color. always use this if you modify the style after NewFrame().
+pub const pushStyleColor = ImGui_PushStyleColor;                                               // modify a style color. always use this if you modify the style after NewFrame().
 pub const pushStyleColorImVec4 = ImGui_PushStyleColorImVec4;
-pub const popStyleColor = ImGui_PopStyleColor;                                       // Implied count = 1
+pub const popStyleColor = ImGui_PopStyleColor;                                                 // Implied count = 1
 pub const popStyleColorEx = ImGui_PopStyleColorEx;
-pub const pushStyleVar = ImGui_PushStyleVar;                                         // modify a style float variable. always use this if you modify the style after NewFrame().
-pub const pushStyleVarImVec2 = ImGui_PushStyleVarImVec2;                             // modify a style ImVec2 variable. always use this if you modify the style after NewFrame().
-pub const popStyleVar = ImGui_PopStyleVar;                                           // Implied count = 1
+pub const pushStyleVar = ImGui_PushStyleVar;                                                   // modify a style float variable. always use this if you modify the style after NewFrame().
+pub const pushStyleVarImVec2 = ImGui_PushStyleVarImVec2;                                       // modify a style ImVec2 variable. always use this if you modify the style after NewFrame().
+pub const popStyleVar = ImGui_PopStyleVar;                                                     // Implied count = 1
 pub const popStyleVarEx = ImGui_PopStyleVarEx;
-pub const pushTabStop = ImGui_PushTabStop;                                           // == tab stop enable. Allow focusing using TAB/Shift-TAB, enabled by default but you can disable it for certain widgets
+pub const pushTabStop = ImGui_PushTabStop;                                                     // == tab stop enable. Allow focusing using TAB/Shift-TAB, enabled by default but you can disable it for certain widgets
 pub const popTabStop = ImGui_PopTabStop;
-pub const pushButtonRepeat = ImGui_PushButtonRepeat;                                 // in 'repeat' mode, Button*() functions return repeated true in a typematic manner (using io.KeyRepeatDelay/io.KeyRepeatRate setting). Note that you can call IsItemActive() after any Button() to tell if the button is held in the current frame.
+pub const pushButtonRepeat = ImGui_PushButtonRepeat;                                           // in 'repeat' mode, Button*() functions return repeated true in a typematic manner (using io.KeyRepeatDelay/io.KeyRepeatRate setting). Note that you can call IsItemActive() after any Button() to tell if the button is held in the current frame.
 pub const popButtonRepeat = ImGui_PopButtonRepeat;
 // Parameters stacks (current window)
-pub const pushItemWidth = ImGui_PushItemWidth;                                       // push width of items for common large "item+label" widgets. >0.0f: width in pixels, <0.0f align xx pixels to the right of window (so -FLT_MIN always align width to the right side).
+pub const pushItemWidth = ImGui_PushItemWidth;                                                 // push width of items for common large "item+label" widgets. >0.0f: width in pixels, <0.0f align xx pixels to the right of window (so -FLT_MIN always align width to the right side).
 pub const popItemWidth = ImGui_PopItemWidth;
-pub const setNextItemWidth = ImGui_SetNextItemWidth;                                 // set width of the _next_ common large "item+label" widget. >0.0f: width in pixels, <0.0f align xx pixels to the right of window (so -FLT_MIN always align width to the right side)
-pub const calcItemWidth = ImGui_CalcItemWidth;                                       // width of item given pushed settings and current cursor position. NOT necessarily the width of last item unlike most 'Item' functions.
-pub const pushTextWrapPos = ImGui_PushTextWrapPos;                                   // push word-wrapping position for Text*() commands. < 0.0f: no wrapping; 0.0f: wrap to end of window (or column); > 0.0f: wrap at 'wrap_pos_x' position in window local space
+pub const setNextItemWidth = ImGui_SetNextItemWidth;                                           // set width of the _next_ common large "item+label" widget. >0.0f: width in pixels, <0.0f align xx pixels to the right of window (so -FLT_MIN always align width to the right side)
+pub const calcItemWidth = ImGui_CalcItemWidth;                                                 // width of item given pushed settings and current cursor position. NOT necessarily the width of last item unlike most 'Item' functions.
+pub const pushTextWrapPos = ImGui_PushTextWrapPos;                                             // push word-wrapping position for Text*() commands. < 0.0f: no wrapping; 0.0f: wrap to end of window (or column); > 0.0f: wrap at 'wrap_pos_x' position in window local space
 pub const popTextWrapPos = ImGui_PopTextWrapPos;
 // Style read access
 // - Use the ShowStyleEditor() function to interactively see/edit the colors.
-pub const getFont = ImGui_GetFont;                                                   // get current font
-pub const getFontSize = ImGui_GetFontSize;                                           // get current font size (= height in pixels) of current font with current scale applied
-pub const getFontTexUvWhitePixel = ImGui_GetFontTexUvWhitePixel;                     // get UV coordinate for a while pixel, useful to draw custom shapes via the ImDrawList API
-pub const getColorU32 = ImGui_GetColorU32;                                           // Implied alpha_mul = 1.0f
-pub const getColorU32Ex = ImGui_GetColorU32Ex;                                       // retrieve given style color with style alpha applied and optional extra alpha multiplier, packed as a 32-bit value suitable for ImDrawList
-pub const getColorU32ImVec4 = ImGui_GetColorU32ImVec4;                               // retrieve given color with style alpha applied, packed as a 32-bit value suitable for ImDrawList
-pub const getColorU32ImU32 = ImGui_GetColorU32ImU32;                                 // retrieve given color with style alpha applied, packed as a 32-bit value suitable for ImDrawList
-pub const getStyleColorVec4 = ImGui_GetStyleColorVec4;                               // retrieve style color as stored in ImGuiStyle structure. use to feed back into PushStyleColor(), otherwise use GetColorU32() to get style color with style alpha baked in.
+pub const getFont = ImGui_GetFont;                                                             // get current font
+pub const getFontSize = ImGui_GetFontSize;                                                     // get current font size (= height in pixels) of current font with current scale applied
+pub const getFontTexUvWhitePixel = ImGui_GetFontTexUvWhitePixel;                               // get UV coordinate for a while pixel, useful to draw custom shapes via the ImDrawList API
+pub const getColorU32 = ImGui_GetColorU32;                                                     // Implied alpha_mul = 1.0f
+pub const getColorU32Ex = ImGui_GetColorU32Ex;                                                 // retrieve given style color with style alpha applied and optional extra alpha multiplier, packed as a 32-bit value suitable for ImDrawList
+pub const getColorU32ImVec4 = ImGui_GetColorU32ImVec4;                                         // retrieve given color with style alpha applied, packed as a 32-bit value suitable for ImDrawList
+pub const getColorU32ImU32 = ImGui_GetColorU32ImU32;                                           // Implied alpha_mul = 1.0f
+pub const getColorU32ImU32Ex = ImGui_GetColorU32ImU32Ex;                                       // retrieve given color with style alpha applied, packed as a 32-bit value suitable for ImDrawList
+pub const getStyleColorVec4 = ImGui_GetStyleColorVec4;                                         // retrieve style color as stored in ImGuiStyle structure. use to feed back into PushStyleColor(), otherwise use GetColorU32() to get style color with style alpha baked in.
 // Layout cursor positioning
 // - By "cursor" we mean the current output position.
 // - The typical widget behavior is to output themselves at the current cursor position, then move the cursor one line down.
@@ -1964,33 +2115,33 @@ pub const getStyleColorVec4 = ImGui_GetStyleColorVec4;                          
 //    - Absolute coordinate:        GetCursorScreenPos(), SetCursorScreenPos(), all ImDrawList:: functions. -> this is the preferred way forward.
 //    - Window-local coordinates:   SameLine(), GetCursorPos(), SetCursorPos(), GetCursorStartPos(), GetContentRegionMax(), GetWindowContentRegion*(), PushTextWrapPos()
 // - GetCursorScreenPos() = GetCursorPos() + GetWindowPos(). GetWindowPos() is almost only ever useful to convert from window-local to absolute coordinates.
-pub const getCursorScreenPos = ImGui_GetCursorScreenPos;                             // cursor position in absolute coordinates (prefer using this, also more useful to work with ImDrawList API).
-pub const setCursorScreenPos = ImGui_SetCursorScreenPos;                             // cursor position in absolute coordinates
-pub const getCursorPos = ImGui_GetCursorPos;                                         // [window-local] cursor position in window coordinates (relative to window position)
-pub const getCursorPosX = ImGui_GetCursorPosX;                                       // [window-local] "
-pub const getCursorPosY = ImGui_GetCursorPosY;                                       // [window-local] "
-pub const setCursorPos = ImGui_SetCursorPos;                                         // [window-local] "
-pub const setCursorPosX = ImGui_SetCursorPosX;                                       // [window-local] "
-pub const setCursorPosY = ImGui_SetCursorPosY;                                       // [window-local] "
-pub const getCursorStartPos = ImGui_GetCursorStartPos;                               // [window-local] initial cursor position, in window coordinates
+pub const getCursorScreenPos = ImGui_GetCursorScreenPos;                                       // cursor position in absolute coordinates (prefer using this, also more useful to work with ImDrawList API).
+pub const setCursorScreenPos = ImGui_SetCursorScreenPos;                                       // cursor position in absolute coordinates
+pub const getCursorPos = ImGui_GetCursorPos;                                                   // [window-local] cursor position in window coordinates (relative to window position)
+pub const getCursorPosX = ImGui_GetCursorPosX;                                                 // [window-local] "
+pub const getCursorPosY = ImGui_GetCursorPosY;                                                 // [window-local] "
+pub const setCursorPos = ImGui_SetCursorPos;                                                   // [window-local] "
+pub const setCursorPosX = ImGui_SetCursorPosX;                                                 // [window-local] "
+pub const setCursorPosY = ImGui_SetCursorPosY;                                                 // [window-local] "
+pub const getCursorStartPos = ImGui_GetCursorStartPos;                                         // [window-local] initial cursor position, in window coordinates
 // Other layout functions
-pub const separator = ImGui_Separator;                                               // separator, generally horizontal. inside a menu bar or in horizontal layout mode, this becomes a vertical separator.
-pub const sameLine = ImGui_SameLine;                                                 // Implied offset_from_start_x = 0.0f, spacing = -1.0f
-pub const sameLineEx = ImGui_SameLineEx;                                             // call between widgets or groups to layout them horizontally. X position given in window coordinates.
-pub const newLine = ImGui_NewLine;                                                   // undo a SameLine() or force a new line when in a horizontal-layout context.
-pub const spacing = ImGui_Spacing;                                                   // add vertical spacing.
-pub const dummy = ImGui_Dummy;                                                       // add a dummy item of given size. unlike InvisibleButton(), Dummy() won't take the mouse click or be navigable into.
-pub const indent = ImGui_Indent;                                                     // Implied indent_w = 0.0f
-pub const indentEx = ImGui_IndentEx;                                                 // move content position toward the right, by indent_w, or style.IndentSpacing if indent_w <= 0
-pub const unindent = ImGui_Unindent;                                                 // Implied indent_w = 0.0f
-pub const unindentEx = ImGui_UnindentEx;                                             // move content position back to the left, by indent_w, or style.IndentSpacing if indent_w <= 0
-pub const beginGroup = ImGui_BeginGroup;                                             // lock horizontal starting position
-pub const endGroup = ImGui_EndGroup;                                                 // unlock horizontal starting position + capture the whole group bounding box into one "item" (so you can use IsItemHovered() or layout primitives such as SameLine() on whole group, etc.)
-pub const alignTextToFramePadding = ImGui_AlignTextToFramePadding;                   // vertically align upcoming text baseline to FramePadding.y so that it will align properly to regularly framed items (call if you have text on a line before a framed item)
-pub const getTextLineHeight = ImGui_GetTextLineHeight;                               // ~ FontSize
-pub const getTextLineHeightWithSpacing = ImGui_GetTextLineHeightWithSpacing;         // ~ FontSize + style.ItemSpacing.y (distance in pixels between 2 consecutive lines of text)
-pub const getFrameHeight = ImGui_GetFrameHeight;                                     // ~ FontSize + style.FramePadding.y * 2
-pub const getFrameHeightWithSpacing = ImGui_GetFrameHeightWithSpacing;               // ~ FontSize + style.FramePadding.y * 2 + style.ItemSpacing.y (distance in pixels between 2 consecutive lines of framed widgets)
+pub const separator = ImGui_Separator;                                                         // separator, generally horizontal. inside a menu bar or in horizontal layout mode, this becomes a vertical separator.
+pub const sameLine = ImGui_SameLine;                                                           // Implied offset_from_start_x = 0.0f, spacing = -1.0f
+pub const sameLineEx = ImGui_SameLineEx;                                                       // call between widgets or groups to layout them horizontally. X position given in window coordinates.
+pub const newLine = ImGui_NewLine;                                                             // undo a SameLine() or force a new line when in a horizontal-layout context.
+pub const spacing = ImGui_Spacing;                                                             // add vertical spacing.
+pub const dummy = ImGui_Dummy;                                                                 // add a dummy item of given size. unlike InvisibleButton(), Dummy() won't take the mouse click or be navigable into.
+pub const indent = ImGui_Indent;                                                               // Implied indent_w = 0.0f
+pub const indentEx = ImGui_IndentEx;                                                           // move content position toward the right, by indent_w, or style.IndentSpacing if indent_w <= 0
+pub const unindent = ImGui_Unindent;                                                           // Implied indent_w = 0.0f
+pub const unindentEx = ImGui_UnindentEx;                                                       // move content position back to the left, by indent_w, or style.IndentSpacing if indent_w <= 0
+pub const beginGroup = ImGui_BeginGroup;                                                       // lock horizontal starting position
+pub const endGroup = ImGui_EndGroup;                                                           // unlock horizontal starting position + capture the whole group bounding box into one "item" (so you can use IsItemHovered() or layout primitives such as SameLine() on whole group, etc.)
+pub const alignTextToFramePadding = ImGui_AlignTextToFramePadding;                             // vertically align upcoming text baseline to FramePadding.y so that it will align properly to regularly framed items (call if you have text on a line before a framed item)
+pub const getTextLineHeight = ImGui_GetTextLineHeight;                                         // ~ FontSize
+pub const getTextLineHeightWithSpacing = ImGui_GetTextLineHeightWithSpacing;                   // ~ FontSize + style.ItemSpacing.y (distance in pixels between 2 consecutive lines of text)
+pub const getFrameHeight = ImGui_GetFrameHeight;                                               // ~ FontSize + style.FramePadding.y * 2
+pub const getFrameHeightWithSpacing = ImGui_GetFrameHeightWithSpacing;                         // ~ FontSize + style.FramePadding.y * 2 + style.ItemSpacing.y (distance in pixels between 2 consecutive lines of framed widgets)
 // ID stack/scopes
 // Read the FAQ (docs/FAQ.md or http://dearimgui.com/faq) for more details about how ID are handled in dear imgui.
 // - Those questions are answered and impacted by understanding of the ID stack system:
@@ -2002,62 +2153,68 @@ pub const getFrameHeightWithSpacing = ImGui_GetFrameHeightWithSpacing;          
 // - You can also use the "Label##foobar" syntax within widget label to distinguish them from each others.
 // - In this header file we use the "label"/"name" terminology to denote a string that will be displayed + used as an ID,
 //   whereas "str_id" denote a string that is only used as an ID and not normally displayed.
-pub const pushID = ImGui_PushID;                                                     // push string into the ID stack (will hash string).
-pub const pushIDStr = ImGui_PushIDStr;                                               // push string into the ID stack (will hash string).
-pub const pushIDPtr = ImGui_PushIDPtr;                                               // push pointer into the ID stack (will hash pointer).
-pub const pushIDInt = ImGui_PushIDInt;                                               // push integer into the ID stack (will hash integer).
-pub const popID = ImGui_PopID;                                                       // pop from the ID stack.
-pub const getID = ImGui_GetID;                                                       // calculate unique ID (hash of whole ID stack + given parameter). e.g. if you want to query into ImGuiStorage yourself
+pub const pushID = ImGui_PushID;                                                               // push string into the ID stack (will hash string).
+pub const pushIDStr = ImGui_PushIDStr;                                                         // push string into the ID stack (will hash string).
+pub const pushIDPtr = ImGui_PushIDPtr;                                                         // push pointer into the ID stack (will hash pointer).
+pub const pushIDInt = ImGui_PushIDInt;                                                         // push integer into the ID stack (will hash integer).
+pub const popID = ImGui_PopID;                                                                 // pop from the ID stack.
+pub const getID = ImGui_GetID;                                                                 // calculate unique ID (hash of whole ID stack + given parameter). e.g. if you want to query into ImGuiStorage yourself
 pub const getIDStr = ImGui_GetIDStr;
 pub const getIDPtr = ImGui_GetIDPtr;
 // Widgets: Text
-pub const textUnformatted = ImGui_TextUnformatted;                                   // Implied text_end = NULL
-pub const textUnformattedEx = ImGui_TextUnformattedEx;                               // raw text without formatting. Roughly equivalent to Text("%s", text) but: A) doesn't require null terminated string if 'text_end' is specified, B) it's faster, no memory copy is done, no buffer size limits, recommended for long chunks of text.
-pub const text = ImGui_Text;                                                         // formatted text
+pub const textUnformatted = ImGui_TextUnformatted;                                             // Implied text_end = NULL
+pub const textUnformattedEx = ImGui_TextUnformattedEx;                                         // raw text without formatting. Roughly equivalent to Text("%s", text) but: A) doesn't require null terminated string if 'text_end' is specified, B) it's faster, no memory copy is done, no buffer size limits, recommended for long chunks of text.
+pub const text = ImGui_Text;                                                                   // formatted text
 pub const textV = ImGui_TextV;
-pub const textColored = ImGui_TextColored;                                           // shortcut for PushStyleColor(ImGuiCol_Text, col); Text(fmt, ...); PopStyleColor();
+pub const textColored = ImGui_TextColored;                                                     // shortcut for PushStyleColor(ImGuiCol_Text, col); Text(fmt, ...); PopStyleColor();
+pub const textColoredUnformatted = ImGui_TextColoredUnformatted;                               // shortcut for PushStyleColor(ImGuiCol_Text, col); Text(fmt, ...); PopStyleColor();
 pub const textColoredV = ImGui_TextColoredV;
-pub const textDisabled = ImGui_TextDisabled;                                         // shortcut for PushStyleColor(ImGuiCol_Text, style.Colors[ImGuiCol_TextDisabled]); Text(fmt, ...); PopStyleColor();
+pub const textDisabled = ImGui_TextDisabled;                                                   // shortcut for PushStyleColor(ImGuiCol_Text, style.Colors[ImGuiCol_TextDisabled]); Text(fmt, ...); PopStyleColor();
+pub const textDisabledUnformatted = ImGui_TextDisabledUnformatted;                             // shortcut for PushStyleColor(ImGuiCol_Text, style.Colors[ImGuiCol_TextDisabled]); Text(fmt, ...); PopStyleColor();
 pub const textDisabledV = ImGui_TextDisabledV;
-pub const textWrapped = ImGui_TextWrapped;                                           // shortcut for PushTextWrapPos(0.0f); Text(fmt, ...); PopTextWrapPos();. Note that this won't work on an auto-resizing window if there's no other widgets to extend the window width, yoy may need to set a size using SetNextWindowSize().
+pub const textWrapped = ImGui_TextWrapped;                                                     // shortcut for PushTextWrapPos(0.0f); Text(fmt, ...); PopTextWrapPos();. Note that this won't work on an auto-resizing window if there's no other widgets to extend the window width, yoy may need to set a size using SetNextWindowSize().
+pub const textWrappedUnformatted = ImGui_TextWrappedUnformatted;                               // shortcut for PushTextWrapPos(0.0f); Text(fmt, ...); PopTextWrapPos();. Note that this won't work on an auto-resizing window if there's no other widgets to extend the window width, yoy may need to set a size using SetNextWindowSize().
 pub const textWrappedV = ImGui_TextWrappedV;
-pub const labelText = ImGui_LabelText;                                               // display text+label aligned the same way as value+label widgets
+pub const labelText = ImGui_LabelText;                                                         // display text+label aligned the same way as value+label widgets
+pub const labelTextUnformatted = ImGui_LabelTextUnformatted;                                   // display text+label aligned the same way as value+label widgets
 pub const labelTextV = ImGui_LabelTextV;
-pub const bulletText = ImGui_BulletText;                                             // shortcut for Bullet()+Text()
+pub const bulletText = ImGui_BulletText;                                                       // shortcut for Bullet()+Text()
+pub const bulletTextUnformatted = ImGui_BulletTextUnformatted;                                 // shortcut for Bullet()+Text()
 pub const bulletTextV = ImGui_BulletTextV;
-pub const separatorText = ImGui_SeparatorText;                                       // currently: formatted text with an horizontal line
+pub const separatorText = ImGui_SeparatorText;                                                 // currently: formatted text with an horizontal line
 // Widgets: Main
 // - Most widgets return true when the value has been changed or when pressed/selected
 // - You may also use one of the many IsItemXXX functions (e.g. IsItemActive, IsItemHovered, etc.) to query widget state.
-pub const button = ImGui_Button;                                                     // Implied size = ImVec2(0, 0)
-pub const buttonEx = ImGui_ButtonEx;                                                 // button
-pub const smallButton = ImGui_SmallButton;                                           // button with (FramePadding.y == 0) to easily embed within text
-pub const invisibleButton = ImGui_InvisibleButton;                                   // flexible button behavior without the visuals, frequently useful to build custom behaviors using the public api (along with IsItemActive, IsItemHovered, etc.)
-pub const arrowButton = ImGui_ArrowButton;                                           // square button with an arrow shape
+pub const button = ImGui_Button;                                                               // Implied size = ImVec2(0, 0)
+pub const buttonEx = ImGui_ButtonEx;                                                           // button
+pub const smallButton = ImGui_SmallButton;                                                     // button with (FramePadding.y == 0) to easily embed within text
+pub const invisibleButton = ImGui_InvisibleButton;                                             // flexible button behavior without the visuals, frequently useful to build custom behaviors using the public api (along with IsItemActive, IsItemHovered, etc.)
+pub const arrowButton = ImGui_ArrowButton;                                                     // square button with an arrow shape
 pub const checkbox = ImGui_Checkbox;
 pub const checkboxFlagsIntPtr = ImGui_CheckboxFlagsIntPtr;
 pub const checkboxFlagsUintPtr = ImGui_CheckboxFlagsUintPtr;
-pub const radioButton = ImGui_RadioButton;                                           // use with e.g. if (RadioButton("one", my_value==1)) { my_value = 1; }
-pub const radioButtonIntPtr = ImGui_RadioButtonIntPtr;                               // shortcut to handle the above pattern when value is an integer
+pub const radioButton = ImGui_RadioButton;                                                     // use with e.g. if (RadioButton("one", my_value==1)) { my_value = 1; }
+pub const radioButtonIntPtr = ImGui_RadioButtonIntPtr;                                         // shortcut to handle the above pattern when value is an integer
 pub const progressBar = ImGui_ProgressBar;
-pub const bullet = ImGui_Bullet;                                                     // draw a small circle + keep the cursor on the same line. advance cursor x position by GetTreeNodeToLabelSpacing(), same distance that TreeNode() uses
+pub const bullet = ImGui_Bullet;                                                               // draw a small circle + keep the cursor on the same line. advance cursor x position by GetTreeNodeToLabelSpacing(), same distance that TreeNode() uses
 // Widgets: Images
 // - Read about ImTextureID here: https://github.com/ocornut/imgui/wiki/Image-Loading-and-Displaying-Examples
-// - Note that ImageButton() adds style.FramePadding*2.0f to provided size. This is in order to facilitate fitting an image in a button.
-pub const image = ImGui_Image;                                                       // Implied uv0 = ImVec2(0, 0), uv1 = ImVec2(1, 1), tint_col = ImVec4(1, 1, 1, 1), border_col = ImVec4(0, 0, 0, 0)
+// - 'uv0' and 'uv1' are texture coordinates. Read about them from the same link above.
+// - Note that Image() may add +2.0f to provided size if a border is visible, ImageButton() adds style.FramePadding*2.0f to provided size.
+pub const image = ImGui_Image;                                                                 // Implied uv0 = ImVec2(0, 0), uv1 = ImVec2(1, 1), tint_col = ImVec4(1, 1, 1, 1), border_col = ImVec4(0, 0, 0, 0)
 pub const imageEx = ImGui_ImageEx;
-pub const imageButton = ImGui_ImageButton;                                           // Implied uv0 = ImVec2(0, 0), uv1 = ImVec2(1, 1), bg_col = ImVec4(0, 0, 0, 0), tint_col = ImVec4(1, 1, 1, 1)
+pub const imageButton = ImGui_ImageButton;                                                     // Implied uv0 = ImVec2(0, 0), uv1 = ImVec2(1, 1), bg_col = ImVec4(0, 0, 0, 0), tint_col = ImVec4(1, 1, 1, 1)
 pub const imageButtonEx = ImGui_ImageButtonEx;
 // Widgets: Combo Box (Dropdown)
 // - The BeginCombo()/EndCombo() api allows you to manage your contents and selection state however you want it, by creating e.g. Selectable() items.
 // - The old Combo() api are helpers over BeginCombo()/EndCombo() which are kept available for convenience purpose. This is analogous to how ListBox are created.
 pub const beginCombo = ImGui_BeginCombo;
-pub const endCombo = ImGui_EndCombo;                                                 // only call EndCombo() if BeginCombo() returns true!
-pub const comboChar = ImGui_ComboChar;                                               // Implied popup_max_height_in_items = -1
+pub const endCombo = ImGui_EndCombo;                                                           // only call EndCombo() if BeginCombo() returns true!
+pub const comboChar = ImGui_ComboChar;                                                         // Implied popup_max_height_in_items = -1
 pub const comboCharEx = ImGui_ComboCharEx;
-pub const combo = ImGui_Combo;                                                       // Implied popup_max_height_in_items = -1
-pub const comboEx = ImGui_ComboEx;                                                   // Separate items with \0 within a string, end item-list with \0\0. e.g. "One\0Two\0Three\0"
-pub const comboCallback = ImGui_ComboCallback;                                       // Implied popup_max_height_in_items = -1
+pub const combo = ImGui_Combo;                                                                 // Implied popup_max_height_in_items = -1
+pub const comboEx = ImGui_ComboEx;                                                             // Separate items with \0 within a string, end item-list with \0\0. e.g. "One\0Two\0Three\0"
+pub const comboCallback = ImGui_ComboCallback;                                                 // Implied popup_max_height_in_items = -1
 pub const comboCallbackEx = ImGui_ComboCallbackEx;
 // Widgets: Drag Sliders
 // - CTRL+Click on any drag box to turn them into an input box. Manually input values aren't clamped by default and can go off-bounds. Use ImGuiSliderFlags_AlwaysClamp to always clamp.
@@ -2071,29 +2228,29 @@ pub const comboCallbackEx = ImGui_ComboCallbackEx;
 // - We use the same sets of flags for DragXXX() and SliderXXX() functions as the features are the same and it makes it easier to swap them.
 // - Legacy: Pre-1.78 there are DragXXX() function signatures that take a final `float power=1.0f' argument instead of the `ImGuiSliderFlags flags=0' argument.
 //   If you get a warning converting a float to ImGuiSliderFlags, read https://github.com/ocornut/imgui/issues/3361
-pub const dragFloat = ImGui_DragFloat;                                               // Implied v_speed = 1.0f, v_min = 0.0f, v_max = 0.0f, format = "%.3f", flags = 0
-pub const dragFloatEx = ImGui_DragFloatEx;                                           // If v_min >= v_max we have no bound
-pub const dragFloat2 = ImGui_DragFloat2;                                             // Implied v_speed = 1.0f, v_min = 0.0f, v_max = 0.0f, format = "%.3f", flags = 0
+pub const dragFloat = ImGui_DragFloat;                                                         // Implied v_speed = 1.0f, v_min = 0.0f, v_max = 0.0f, format = "%.3f", flags = 0
+pub const dragFloatEx = ImGui_DragFloatEx;                                                     // If v_min >= v_max we have no bound
+pub const dragFloat2 = ImGui_DragFloat2;                                                       // Implied v_speed = 1.0f, v_min = 0.0f, v_max = 0.0f, format = "%.3f", flags = 0
 pub const dragFloat2Ex = ImGui_DragFloat2Ex;
-pub const dragFloat3 = ImGui_DragFloat3;                                             // Implied v_speed = 1.0f, v_min = 0.0f, v_max = 0.0f, format = "%.3f", flags = 0
+pub const dragFloat3 = ImGui_DragFloat3;                                                       // Implied v_speed = 1.0f, v_min = 0.0f, v_max = 0.0f, format = "%.3f", flags = 0
 pub const dragFloat3Ex = ImGui_DragFloat3Ex;
-pub const dragFloat4 = ImGui_DragFloat4;                                             // Implied v_speed = 1.0f, v_min = 0.0f, v_max = 0.0f, format = "%.3f", flags = 0
+pub const dragFloat4 = ImGui_DragFloat4;                                                       // Implied v_speed = 1.0f, v_min = 0.0f, v_max = 0.0f, format = "%.3f", flags = 0
 pub const dragFloat4Ex = ImGui_DragFloat4Ex;
-pub const dragFloatRange2 = ImGui_DragFloatRange2;                                   // Implied v_speed = 1.0f, v_min = 0.0f, v_max = 0.0f, format = "%.3f", format_max = NULL, flags = 0
+pub const dragFloatRange2 = ImGui_DragFloatRange2;                                             // Implied v_speed = 1.0f, v_min = 0.0f, v_max = 0.0f, format = "%.3f", format_max = NULL, flags = 0
 pub const dragFloatRange2Ex = ImGui_DragFloatRange2Ex;
-pub const dragInt = ImGui_DragInt;                                                   // Implied v_speed = 1.0f, v_min = 0, v_max = 0, format = "%d", flags = 0
-pub const dragIntEx = ImGui_DragIntEx;                                               // If v_min >= v_max we have no bound
-pub const dragInt2 = ImGui_DragInt2;                                                 // Implied v_speed = 1.0f, v_min = 0, v_max = 0, format = "%d", flags = 0
+pub const dragInt = ImGui_DragInt;                                                             // Implied v_speed = 1.0f, v_min = 0, v_max = 0, format = "%d", flags = 0
+pub const dragIntEx = ImGui_DragIntEx;                                                         // If v_min >= v_max we have no bound
+pub const dragInt2 = ImGui_DragInt2;                                                           // Implied v_speed = 1.0f, v_min = 0, v_max = 0, format = "%d", flags = 0
 pub const dragInt2Ex = ImGui_DragInt2Ex;
-pub const dragInt3 = ImGui_DragInt3;                                                 // Implied v_speed = 1.0f, v_min = 0, v_max = 0, format = "%d", flags = 0
+pub const dragInt3 = ImGui_DragInt3;                                                           // Implied v_speed = 1.0f, v_min = 0, v_max = 0, format = "%d", flags = 0
 pub const dragInt3Ex = ImGui_DragInt3Ex;
-pub const dragInt4 = ImGui_DragInt4;                                                 // Implied v_speed = 1.0f, v_min = 0, v_max = 0, format = "%d", flags = 0
+pub const dragInt4 = ImGui_DragInt4;                                                           // Implied v_speed = 1.0f, v_min = 0, v_max = 0, format = "%d", flags = 0
 pub const dragInt4Ex = ImGui_DragInt4Ex;
-pub const dragIntRange2 = ImGui_DragIntRange2;                                       // Implied v_speed = 1.0f, v_min = 0, v_max = 0, format = "%d", format_max = NULL, flags = 0
+pub const dragIntRange2 = ImGui_DragIntRange2;                                                 // Implied v_speed = 1.0f, v_min = 0, v_max = 0, format = "%d", format_max = NULL, flags = 0
 pub const dragIntRange2Ex = ImGui_DragIntRange2Ex;
-pub const dragScalar = ImGui_DragScalar;                                             // Implied v_speed = 1.0f, p_min = NULL, p_max = NULL, format = NULL, flags = 0
+pub const dragScalar = ImGui_DragScalar;                                                       // Implied v_speed = 1.0f, p_min = NULL, p_max = NULL, format = NULL, flags = 0
 pub const dragScalarEx = ImGui_DragScalarEx;
-pub const dragScalarN = ImGui_DragScalarN;                                           // Implied v_speed = 1.0f, p_min = NULL, p_max = NULL, format = NULL, flags = 0
+pub const dragScalarN = ImGui_DragScalarN;                                                     // Implied v_speed = 1.0f, p_min = NULL, p_max = NULL, format = NULL, flags = 0
 pub const dragScalarNEx = ImGui_DragScalarNEx;
 // Widgets: Regular Sliders
 // - CTRL+Click on any slider to turn them into an input box. Manually input values aren't clamped by default and can go off-bounds. Use ImGuiSliderFlags_AlwaysClamp to always clamp.
@@ -2101,61 +2258,61 @@ pub const dragScalarNEx = ImGui_DragScalarNEx;
 // - Format string may also be set to NULL or use the default format ("%f" or "%d").
 // - Legacy: Pre-1.78 there are SliderXXX() function signatures that take a final `float power=1.0f' argument instead of the `ImGuiSliderFlags flags=0' argument.
 //   If you get a warning converting a float to ImGuiSliderFlags, read https://github.com/ocornut/imgui/issues/3361
-pub const sliderFloat = ImGui_SliderFloat;                                           // Implied format = "%.3f", flags = 0
-pub const sliderFloatEx = ImGui_SliderFloatEx;                                       // adjust format to decorate the value with a prefix or a suffix for in-slider labels or unit display.
-pub const sliderFloat2 = ImGui_SliderFloat2;                                         // Implied format = "%.3f", flags = 0
+pub const sliderFloat = ImGui_SliderFloat;                                                     // Implied format = "%.3f", flags = 0
+pub const sliderFloatEx = ImGui_SliderFloatEx;                                                 // adjust format to decorate the value with a prefix or a suffix for in-slider labels or unit display.
+pub const sliderFloat2 = ImGui_SliderFloat2;                                                   // Implied format = "%.3f", flags = 0
 pub const sliderFloat2Ex = ImGui_SliderFloat2Ex;
-pub const sliderFloat3 = ImGui_SliderFloat3;                                         // Implied format = "%.3f", flags = 0
+pub const sliderFloat3 = ImGui_SliderFloat3;                                                   // Implied format = "%.3f", flags = 0
 pub const sliderFloat3Ex = ImGui_SliderFloat3Ex;
-pub const sliderFloat4 = ImGui_SliderFloat4;                                         // Implied format = "%.3f", flags = 0
+pub const sliderFloat4 = ImGui_SliderFloat4;                                                   // Implied format = "%.3f", flags = 0
 pub const sliderFloat4Ex = ImGui_SliderFloat4Ex;
-pub const sliderAngle = ImGui_SliderAngle;                                           // Implied v_degrees_min = -360.0f, v_degrees_max = +360.0f, format = "%.0f deg", flags = 0
+pub const sliderAngle = ImGui_SliderAngle;                                                     // Implied v_degrees_min = -360.0f, v_degrees_max = +360.0f, format = "%.0f deg", flags = 0
 pub const sliderAngleEx = ImGui_SliderAngleEx;
-pub const sliderInt = ImGui_SliderInt;                                               // Implied format = "%d", flags = 0
+pub const sliderInt = ImGui_SliderInt;                                                         // Implied format = "%d", flags = 0
 pub const sliderIntEx = ImGui_SliderIntEx;
-pub const sliderInt2 = ImGui_SliderInt2;                                             // Implied format = "%d", flags = 0
+pub const sliderInt2 = ImGui_SliderInt2;                                                       // Implied format = "%d", flags = 0
 pub const sliderInt2Ex = ImGui_SliderInt2Ex;
-pub const sliderInt3 = ImGui_SliderInt3;                                             // Implied format = "%d", flags = 0
+pub const sliderInt3 = ImGui_SliderInt3;                                                       // Implied format = "%d", flags = 0
 pub const sliderInt3Ex = ImGui_SliderInt3Ex;
-pub const sliderInt4 = ImGui_SliderInt4;                                             // Implied format = "%d", flags = 0
+pub const sliderInt4 = ImGui_SliderInt4;                                                       // Implied format = "%d", flags = 0
 pub const sliderInt4Ex = ImGui_SliderInt4Ex;
-pub const sliderScalar = ImGui_SliderScalar;                                         // Implied format = NULL, flags = 0
+pub const sliderScalar = ImGui_SliderScalar;                                                   // Implied format = NULL, flags = 0
 pub const sliderScalarEx = ImGui_SliderScalarEx;
-pub const sliderScalarN = ImGui_SliderScalarN;                                       // Implied format = NULL, flags = 0
+pub const sliderScalarN = ImGui_SliderScalarN;                                                 // Implied format = NULL, flags = 0
 pub const sliderScalarNEx = ImGui_SliderScalarNEx;
-pub const vSliderFloat = ImGui_VSliderFloat;                                         // Implied format = "%.3f", flags = 0
+pub const vSliderFloat = ImGui_VSliderFloat;                                                   // Implied format = "%.3f", flags = 0
 pub const vSliderFloatEx = ImGui_VSliderFloatEx;
-pub const vSliderInt = ImGui_VSliderInt;                                             // Implied format = "%d", flags = 0
+pub const vSliderInt = ImGui_VSliderInt;                                                       // Implied format = "%d", flags = 0
 pub const vSliderIntEx = ImGui_VSliderIntEx;
-pub const vSliderScalar = ImGui_VSliderScalar;                                       // Implied format = NULL, flags = 0
+pub const vSliderScalar = ImGui_VSliderScalar;                                                 // Implied format = NULL, flags = 0
 pub const vSliderScalarEx = ImGui_VSliderScalarEx;
 // Widgets: Input with Keyboard
 // - If you want to use InputText() with std::string or any custom dynamic string type, see misc/cpp/imgui_stdlib.h and comments in imgui_demo.cpp.
 // - Most of the ImGuiInputTextFlags flags are only useful for InputText() and not for InputFloatX, InputIntX, InputDouble etc.
-pub const inputText = ImGui_InputText;                                               // Implied callback = NULL, user_data = NULL
+pub const inputText = ImGui_InputText;                                                         // Implied callback = NULL, user_data = NULL
 pub const inputTextEx = ImGui_InputTextEx;
-pub const inputTextMultiline = ImGui_InputTextMultiline;                             // Implied size = ImVec2(0, 0), flags = 0, callback = NULL, user_data = NULL
+pub const inputTextMultiline = ImGui_InputTextMultiline;                                       // Implied size = ImVec2(0, 0), flags = 0, callback = NULL, user_data = NULL
 pub const inputTextMultilineEx = ImGui_InputTextMultilineEx;
-pub const inputTextWithHint = ImGui_InputTextWithHint;                               // Implied callback = NULL, user_data = NULL
+pub const inputTextWithHint = ImGui_InputTextWithHint;                                         // Implied callback = NULL, user_data = NULL
 pub const inputTextWithHintEx = ImGui_InputTextWithHintEx;
-pub const inputFloat = ImGui_InputFloat;                                             // Implied step = 0.0f, step_fast = 0.0f, format = "%.3f", flags = 0
+pub const inputFloat = ImGui_InputFloat;                                                       // Implied step = 0.0f, step_fast = 0.0f, format = "%.3f", flags = 0
 pub const inputFloatEx = ImGui_InputFloatEx;
-pub const inputFloat2 = ImGui_InputFloat2;                                           // Implied format = "%.3f", flags = 0
+pub const inputFloat2 = ImGui_InputFloat2;                                                     // Implied format = "%.3f", flags = 0
 pub const inputFloat2Ex = ImGui_InputFloat2Ex;
-pub const inputFloat3 = ImGui_InputFloat3;                                           // Implied format = "%.3f", flags = 0
+pub const inputFloat3 = ImGui_InputFloat3;                                                     // Implied format = "%.3f", flags = 0
 pub const inputFloat3Ex = ImGui_InputFloat3Ex;
-pub const inputFloat4 = ImGui_InputFloat4;                                           // Implied format = "%.3f", flags = 0
+pub const inputFloat4 = ImGui_InputFloat4;                                                     // Implied format = "%.3f", flags = 0
 pub const inputFloat4Ex = ImGui_InputFloat4Ex;
-pub const inputInt = ImGui_InputInt;                                                 // Implied step = 1, step_fast = 100, flags = 0
+pub const inputInt = ImGui_InputInt;                                                           // Implied step = 1, step_fast = 100, flags = 0
 pub const inputIntEx = ImGui_InputIntEx;
 pub const inputInt2 = ImGui_InputInt2;
 pub const inputInt3 = ImGui_InputInt3;
 pub const inputInt4 = ImGui_InputInt4;
-pub const inputDouble = ImGui_InputDouble;                                           // Implied step = 0.0, step_fast = 0.0, format = "%.6f", flags = 0
+pub const inputDouble = ImGui_InputDouble;                                                     // Implied step = 0.0, step_fast = 0.0, format = "%.6f", flags = 0
 pub const inputDoubleEx = ImGui_InputDoubleEx;
-pub const inputScalar = ImGui_InputScalar;                                           // Implied p_step = NULL, p_step_fast = NULL, format = NULL, flags = 0
+pub const inputScalar = ImGui_InputScalar;                                                     // Implied p_step = NULL, p_step_fast = NULL, format = NULL, flags = 0
 pub const inputScalarEx = ImGui_InputScalarEx;
-pub const inputScalarN = ImGui_InputScalarN;                                         // Implied p_step = NULL, p_step_fast = NULL, format = NULL, flags = 0
+pub const inputScalarN = ImGui_InputScalarN;                                                   // Implied p_step = NULL, p_step_fast = NULL, format = NULL, flags = 0
 pub const inputScalarNEx = ImGui_InputScalarNEx;
 // Widgets: Color Editor/Picker (tip: the ColorEdit* functions have a little color square that can be left-clicked to open a picker, and right-clicked to open an option menu.)
 // - Note that in C++ a 'float v[X]' function argument is the _same_ as 'float* v', the array syntax is just a way to document the number of elements that are expected to be accessible.
@@ -2164,91 +2321,104 @@ pub const colorEdit3 = ImGui_ColorEdit3;
 pub const colorEdit4 = ImGui_ColorEdit4;
 pub const colorPicker3 = ImGui_ColorPicker3;
 pub const colorPicker4 = ImGui_ColorPicker4;
-pub const colorButton = ImGui_ColorButton;                                           // Implied size = ImVec2(0, 0)
-pub const colorButtonEx = ImGui_ColorButtonEx;                                       // display a color square/button, hover for details, return true when pressed.
-pub const setColorEditOptions = ImGui_SetColorEditOptions;                           // initialize current options (generally on application startup) if you want to select a default format, picker type, etc. User will be able to change many settings, unless you pass the _NoOptions flag to your calls.
+pub const colorButton = ImGui_ColorButton;                                                     // Implied size = ImVec2(0, 0)
+pub const colorButtonEx = ImGui_ColorButtonEx;                                                 // display a color square/button, hover for details, return true when pressed.
+pub const setColorEditOptions = ImGui_SetColorEditOptions;                                     // initialize current options (generally on application startup) if you want to select a default format, picker type, etc. User will be able to change many settings, unless you pass the _NoOptions flag to your calls.
 // Widgets: Trees
 // - TreeNode functions return true when the node is open, in which case you need to also call TreePop() when you are finished displaying the tree node contents.
 pub const treeNode = ImGui_TreeNode;
-pub const treeNodeStr = ImGui_TreeNodeStr;                                           // helper variation to easily decorelate the id from the displayed string. Read the FAQ about why and how to use ID. to align arbitrary text at the same level as a TreeNode() you can use Bullet().
-pub const treeNodePtr = ImGui_TreeNodePtr;                                           // "
+pub const treeNodeStr = ImGui_TreeNodeStr;                                                     // helper variation to easily decorelate the id from the displayed string. Read the FAQ about why and how to use ID. to align arbitrary text at the same level as a TreeNode() you can use Bullet().
+pub const treeNodeStrUnformatted = ImGui_TreeNodeStrUnformatted;                               // helper variation to easily decorelate the id from the displayed string. Read the FAQ about why and how to use ID. to align arbitrary text at the same level as a TreeNode() you can use Bullet().
+pub const treeNodePtr = ImGui_TreeNodePtr;                                                     // "
+pub const treeNodePtrUnformatted = ImGui_TreeNodePtrUnformatted;                               // "
 pub const treeNodeV = ImGui_TreeNodeV;
 pub const treeNodeVPtr = ImGui_TreeNodeVPtr;
 pub const treeNodeEx = ImGui_TreeNodeEx;
 pub const treeNodeExStr = ImGui_TreeNodeExStr;
+pub const treeNodeExStrUnformatted = ImGui_TreeNodeExStrUnformatted;
 pub const treeNodeExPtr = ImGui_TreeNodeExPtr;
+pub const treeNodeExPtrUnformatted = ImGui_TreeNodeExPtrUnformatted;
 pub const treeNodeExV = ImGui_TreeNodeExV;
 pub const treeNodeExVPtr = ImGui_TreeNodeExVPtr;
-pub const treePush = ImGui_TreePush;                                                 // ~ Indent()+PushId(). Already called by TreeNode() when returning true, but you can call TreePush/TreePop yourself if desired.
-pub const treePushPtr = ImGui_TreePushPtr;                                           // "
-pub const treePop = ImGui_TreePop;                                                   // ~ Unindent()+PopId()
-pub const getTreeNodeToLabelSpacing = ImGui_GetTreeNodeToLabelSpacing;               // horizontal distance preceding label when using TreeNode*() or Bullet() == (g.FontSize + style.FramePadding.x*2) for a regular unframed TreeNode
-pub const collapsingHeader = ImGui_CollapsingHeader;                                 // if returning 'true' the header is open. doesn't indent nor push on ID stack. user doesn't have to call TreePop().
-pub const collapsingHeaderBoolPtr = ImGui_CollapsingHeaderBoolPtr;                   // when 'p_visible != NULL': if '*p_visible==true' display an additional small close button on upper right of the header which will set the bool to false when clicked, if '*p_visible==false' don't display the header.
-pub const setNextItemOpen = ImGui_SetNextItemOpen;                                   // set next TreeNode/CollapsingHeader open state.
+pub const treePush = ImGui_TreePush;                                                           // ~ Indent()+PushID(). Already called by TreeNode() when returning true, but you can call TreePush/TreePop yourself if desired.
+pub const treePushPtr = ImGui_TreePushPtr;                                                     // "
+pub const treePop = ImGui_TreePop;                                                             // ~ Unindent()+PopID()
+pub const getTreeNodeToLabelSpacing = ImGui_GetTreeNodeToLabelSpacing;                         // horizontal distance preceding label when using TreeNode*() or Bullet() == (g.FontSize + style.FramePadding.x*2) for a regular unframed TreeNode
+pub const collapsingHeader = ImGui_CollapsingHeader;                                           // if returning 'true' the header is open. doesn't indent nor push on ID stack. user doesn't have to call TreePop().
+pub const collapsingHeaderBoolPtr = ImGui_CollapsingHeaderBoolPtr;                             // when 'p_visible != NULL': if '*p_visible==true' display an additional small close button on upper right of the header which will set the bool to false when clicked, if '*p_visible==false' don't display the header.
+pub const setNextItemOpen = ImGui_SetNextItemOpen;                                             // set next TreeNode/CollapsingHeader open state.
 // Widgets: Selectables
 // - A selectable highlights when hovered, and can display another color when selected.
 // - Neighbors selectable extend their highlight bounds in order to leave no gap between them. This is so a series of selected Selectable appear contiguous.
-pub const selectable = ImGui_Selectable;                                             // Implied selected = false, flags = 0, size = ImVec2(0, 0)
-pub const selectableEx = ImGui_SelectableEx;                                         // "bool selected" carry the selection state (read-only). Selectable() is clicked is returns true so you can modify your selection state. size.x==0.0: use remaining width, size.x>0.0: specify width. size.y==0.0: use label height, size.y>0.0: specify height
-pub const selectableBoolPtr = ImGui_SelectableBoolPtr;                               // Implied size = ImVec2(0, 0)
-pub const selectableBoolPtrEx = ImGui_SelectableBoolPtrEx;                           // "bool* p_selected" point to the selection state (read-write), as a convenient helper.
+pub const selectable = ImGui_Selectable;                                                       // Implied selected = false, flags = 0, size = ImVec2(0, 0)
+pub const selectableEx = ImGui_SelectableEx;                                                   // "bool selected" carry the selection state (read-only). Selectable() is clicked is returns true so you can modify your selection state. size.x==0.0: use remaining width, size.x>0.0: specify width. size.y==0.0: use label height, size.y>0.0: specify height
+pub const selectableBoolPtr = ImGui_SelectableBoolPtr;                                         // Implied size = ImVec2(0, 0)
+pub const selectableBoolPtrEx = ImGui_SelectableBoolPtrEx;                                     // "bool* p_selected" point to the selection state (read-write), as a convenient helper.
 // Widgets: List Boxes
 // - This is essentially a thin wrapper to using BeginChild/EndChild with the ImGuiChildFlags_FrameStyle flag for stylistic changes + displaying a label.
 // - You can submit contents and manage your selection state however you want it, by creating e.g. Selectable() or any other items.
 // - The simplified/old ListBox() api are helpers over BeginListBox()/EndListBox() which are kept available for convenience purpose. This is analoguous to how Combos are created.
 // - Choose frame width:   size.x > 0.0f: custom  /  size.x < 0.0f or -FLT_MIN: right-align   /  size.x = 0.0f (default): use current ItemWidth
 // - Choose frame height:  size.y > 0.0f: custom  /  size.y < 0.0f or -FLT_MIN: bottom-align  /  size.y = 0.0f (default): arbitrary default height which can fit ~7 items
-pub const beginListBox = ImGui_BeginListBox;                                         // open a framed scrolling region
-pub const endListBox = ImGui_EndListBox;                                             // only call EndListBox() if BeginListBox() returned true!
+pub const beginListBox = ImGui_BeginListBox;                                                   // open a framed scrolling region
+pub const endListBox = ImGui_EndListBox;                                                       // only call EndListBox() if BeginListBox() returned true!
 pub const listBox = ImGui_ListBox;
-pub const listBoxCallback = ImGui_ListBoxCallback;                                   // Implied height_in_items = -1
+pub const listBoxCallback = ImGui_ListBoxCallback;                                             // Implied height_in_items = -1
 pub const listBoxCallbackEx = ImGui_ListBoxCallbackEx;
 // Widgets: Data Plotting
 // - Consider using ImPlot (https://github.com/epezent/implot) which is much better!
-pub const plotLines = ImGui_PlotLines;                                               // Implied values_offset = 0, overlay_text = NULL, scale_min = FLT_MAX, scale_max = FLT_MAX, graph_size = ImVec2(0, 0), stride = sizeof(float)
+pub const plotLines = ImGui_PlotLines;                                                         // Implied values_offset = 0, overlay_text = NULL, scale_min = FLT_MAX, scale_max = FLT_MAX, graph_size = ImVec2(0, 0), stride = sizeof(float)
 pub const plotLinesEx = ImGui_PlotLinesEx;
-pub const plotLinesCallback = ImGui_PlotLinesCallback;                               // Implied values_offset = 0, overlay_text = NULL, scale_min = FLT_MAX, scale_max = FLT_MAX, graph_size = ImVec2(0, 0)
+pub const plotLinesCallback = ImGui_PlotLinesCallback;                                         // Implied values_offset = 0, overlay_text = NULL, scale_min = FLT_MAX, scale_max = FLT_MAX, graph_size = ImVec2(0, 0)
 pub const plotLinesCallbackEx = ImGui_PlotLinesCallbackEx;
-pub const plotHistogram = ImGui_PlotHistogram;                                       // Implied values_offset = 0, overlay_text = NULL, scale_min = FLT_MAX, scale_max = FLT_MAX, graph_size = ImVec2(0, 0), stride = sizeof(float)
+pub const plotHistogram = ImGui_PlotHistogram;                                                 // Implied values_offset = 0, overlay_text = NULL, scale_min = FLT_MAX, scale_max = FLT_MAX, graph_size = ImVec2(0, 0), stride = sizeof(float)
 pub const plotHistogramEx = ImGui_PlotHistogramEx;
-pub const plotHistogramCallback = ImGui_PlotHistogramCallback;                       // Implied values_offset = 0, overlay_text = NULL, scale_min = FLT_MAX, scale_max = FLT_MAX, graph_size = ImVec2(0, 0)
+pub const plotHistogramCallback = ImGui_PlotHistogramCallback;                                 // Implied values_offset = 0, overlay_text = NULL, scale_min = FLT_MAX, scale_max = FLT_MAX, graph_size = ImVec2(0, 0)
 pub const plotHistogramCallbackEx = ImGui_PlotHistogramCallbackEx;
 // Widgets: Menus
 // - Use BeginMenuBar() on a window ImGuiWindowFlags_MenuBar to append to its menu bar.
 // - Use BeginMainMenuBar() to create a menu bar at the top of the screen and append to it.
 // - Use BeginMenu() to create a menu. You can call BeginMenu() multiple time with the same identifier to append more items to it.
 // - Not that MenuItem() keyboardshortcuts are displayed as a convenience but _not processed_ by Dear ImGui at the moment.
-pub const beginMenuBar = ImGui_BeginMenuBar;                                         // append to menu-bar of current window (requires ImGuiWindowFlags_MenuBar flag set on parent window).
-pub const endMenuBar = ImGui_EndMenuBar;                                             // only call EndMenuBar() if BeginMenuBar() returns true!
-pub const beginMainMenuBar = ImGui_BeginMainMenuBar;                                 // create and append to a full screen menu-bar.
-pub const endMainMenuBar = ImGui_EndMainMenuBar;                                     // only call EndMainMenuBar() if BeginMainMenuBar() returns true!
-pub const beginMenu = ImGui_BeginMenu;                                               // Implied enabled = true
-pub const beginMenuEx = ImGui_BeginMenuEx;                                           // create a sub-menu entry. only call EndMenu() if this returns true!
-pub const endMenu = ImGui_EndMenu;                                                   // only call EndMenu() if BeginMenu() returns true!
-pub const menuItem = ImGui_MenuItem;                                                 // Implied shortcut = NULL, selected = false, enabled = true
-pub const menuItemEx = ImGui_MenuItemEx;                                             // return true when activated.
-pub const menuItemBoolPtr = ImGui_MenuItemBoolPtr;                                   // return true when activated + toggle (*p_selected) if p_selected != NULL
+pub const beginMenuBar = ImGui_BeginMenuBar;                                                   // append to menu-bar of current window (requires ImGuiWindowFlags_MenuBar flag set on parent window).
+pub const endMenuBar = ImGui_EndMenuBar;                                                       // only call EndMenuBar() if BeginMenuBar() returns true!
+pub const beginMainMenuBar = ImGui_BeginMainMenuBar;                                           // create and append to a full screen menu-bar.
+pub const endMainMenuBar = ImGui_EndMainMenuBar;                                               // only call EndMainMenuBar() if BeginMainMenuBar() returns true!
+pub const beginMenu = ImGui_BeginMenu;                                                         // Implied enabled = true
+pub const beginMenuEx = ImGui_BeginMenuEx;                                                     // create a sub-menu entry. only call EndMenu() if this returns true!
+pub const endMenu = ImGui_EndMenu;                                                             // only call EndMenu() if BeginMenu() returns true!
+pub const menuItem = ImGui_MenuItem;                                                           // Implied shortcut = NULL, selected = false, enabled = true
+pub const menuItemEx = ImGui_MenuItemEx;                                                       // return true when activated.
+pub const menuItemBoolPtr = ImGui_MenuItemBoolPtr;                                             // return true when activated + toggle (*p_selected) if p_selected != NULL
 // Tooltips
 // - Tooltips are windows following the mouse. They do not take focus away.
 // - A tooltip window can contain items of any types. SetTooltip() is a shortcut for the 'if (BeginTooltip()) { Text(...); EndTooltip(); }' idiom.
-pub const beginTooltip = ImGui_BeginTooltip;                                         // begin/append a tooltip window.
-pub const endTooltip = ImGui_EndTooltip;                                             // only call EndTooltip() if BeginTooltip()/BeginItemTooltip() returns true!
-pub const setTooltip = ImGui_SetTooltip;                                             // set a text-only tooltip. Often used after a ImGui::IsItemHovered() check. Override any previous call to SetTooltip().
+pub const beginTooltip = ImGui_BeginTooltip;                                                   // begin/append a tooltip window.
+pub const endTooltip = ImGui_EndTooltip;                                                       // only call EndTooltip() if BeginTooltip()/BeginItemTooltip() returns true!
+pub const setTooltip = ImGui_SetTooltip;                                                       // set a text-only tooltip. Often used after a ImGui::IsItemHovered() check. Override any previous call to SetTooltip().
+pub const setTooltipUnformatted = ImGui_SetTooltipUnformatted;                                 // set a text-only tooltip. Often used after a ImGui::IsItemHovered() check. Override any previous call to SetTooltip().
 pub const setTooltipV = ImGui_SetTooltipV;
 // Tooltips: helpers for showing a tooltip when hovering an item
 // - BeginItemTooltip() is a shortcut for the 'if (IsItemHovered(ImGuiHoveredFlags_ForTooltip) && BeginTooltip())' idiom.
 // - SetItemTooltip() is a shortcut for the 'if (IsItemHovered(ImGuiHoveredFlags_ForTooltip)) { SetTooltip(...); }' idiom.
 // - Where 'ImGuiHoveredFlags_ForTooltip' itself is a shortcut to use 'style.HoverFlagsForTooltipMouse' or 'style.HoverFlagsForTooltipNav' depending on active input type. For mouse it defaults to 'ImGuiHoveredFlags_Stationary | ImGuiHoveredFlags_DelayShort'.
-pub const beginItemTooltip = ImGui_BeginItemTooltip;                                 // begin/append a tooltip window if preceding item was hovered.
-pub const setItemTooltip = ImGui_SetItemTooltip;                                     // set a text-only tooltip if preceeding item was hovered. override any previous call to SetTooltip().
+pub const beginItemTooltip = ImGui_BeginItemTooltip;                                           // begin/append a tooltip window if preceding item was hovered.
+pub const setItemTooltip = ImGui_SetItemTooltip;                                               // set a text-only tooltip if preceeding item was hovered. override any previous call to SetTooltip().
+pub const setItemTooltipUnformatted = ImGui_SetItemTooltipUnformatted;                         // set a text-only tooltip if preceeding item was hovered. override any previous call to SetTooltip().
 pub const setItemTooltipV = ImGui_SetItemTooltipV;
-// Popups: begin/end functions
-//  - BeginPopup(): query popup state, if open start appending into the window. Call EndPopup() afterwards. ImGuiWindowFlags are forwarded to the window.
+// Popups, Modals
+//  - They block normal mouse hovering detection (and therefore most mouse interactions) behind them.
+//  - If not modal: they can be closed by clicking anywhere outside them, or by pressing ESCAPE.
+//  - Their visibility state (~bool) is held internally instead of being held by the programmer as we are used to with regular Begin*() calls.
+//  - The 3 properties above are related: we need to retain popup visibility state in the library because popups may be closed as any time.
+//  - You can bypass the hovering restriction by using ImGuiHoveredFlags_AllowWhenBlockedByPopup when calling IsItemHovered() or IsWindowHovered().
+//  - IMPORTANT: Popup identifiers are relative to the current ID stack, so OpenPopup and BeginPopup generally needs to be at the same level of the stack.
+//    This is sometimes leading to confusing mistakes. May rework this in the future.
+//  - BeginPopup(): query popup state, if open start appending into the window. Call EndPopup() afterwards if returned true. ImGuiWindowFlags are forwarded to the window.
 //  - BeginPopupModal(): block every interaction behind the window, cannot be closed by user, add a dimming background, has a title bar.
-pub const beginPopup = ImGui_BeginPopup;                                             // return true if the popup is open, and you can start outputting to it.
-pub const beginPopupModal = ImGui_BeginPopupModal;                                   // return true if the modal is open, and you can start outputting to it.
-pub const endPopup = ImGui_EndPopup;                                                 // only call EndPopup() if BeginPopupXXX() returns true!
+pub const beginPopup = ImGui_BeginPopup;                                                       // return true if the popup is open, and you can start outputting to it.
+pub const beginPopupModal = ImGui_BeginPopupModal;                                             // return true if the modal is open, and you can start outputting to it.
+pub const endPopup = ImGui_EndPopup;                                                           // only call EndPopup() if BeginPopupXXX() returns true!
 // Popups: open/close functions
 //  - OpenPopup(): set popup state to open. ImGuiPopupFlags are available for opening options.
 //  - If not modal: they can be closed by clicking anywhere outside them, or by pressing ESCAPE.
@@ -2257,26 +2427,26 @@ pub const endPopup = ImGui_EndPopup;                                            
 //  - Use ImGuiPopupFlags_NoOpenOverExistingPopup to avoid opening a popup if there's already one at the same level. This is equivalent to e.g. testing for !IsAnyPopupOpen() prior to OpenPopup().
 //  - Use IsWindowAppearing() after BeginPopup() to tell if a window just opened.
 //  - IMPORTANT: Notice that for OpenPopupOnItemClick() we exceptionally default flags to 1 (== ImGuiPopupFlags_MouseButtonRight) for backward compatibility with older API taking 'int mouse_button = 1' parameter
-pub const openPopup = ImGui_OpenPopup;                                               // call to mark popup as open (don't call every frame!).
-pub const openPopupID = ImGui_OpenPopupID;                                           // id overload to facilitate calling from nested stacks
-pub const openPopupOnItemClick = ImGui_OpenPopupOnItemClick;                         // helper to open popup when clicked on last item. Default to ImGuiPopupFlags_MouseButtonRight == 1. (note: actually triggers on the mouse _released_ event to be consistent with popup behaviors)
-pub const closeCurrentPopup = ImGui_CloseCurrentPopup;                               // manually close the popup we have begin-ed into.
+pub const openPopup = ImGui_OpenPopup;                                                         // call to mark popup as open (don't call every frame!).
+pub const openPopupID = ImGui_OpenPopupID;                                                     // id overload to facilitate calling from nested stacks
+pub const openPopupOnItemClick = ImGui_OpenPopupOnItemClick;                                   // helper to open popup when clicked on last item. Default to ImGuiPopupFlags_MouseButtonRight == 1. (note: actually triggers on the mouse _released_ event to be consistent with popup behaviors)
+pub const closeCurrentPopup = ImGui_CloseCurrentPopup;                                         // manually close the popup we have begin-ed into.
 // Popups: open+begin combined functions helpers
 //  - Helpers to do OpenPopup+BeginPopup where the Open action is triggered by e.g. hovering an item and right-clicking.
 //  - They are convenient to easily create context menus, hence the name.
 //  - IMPORTANT: Notice that BeginPopupContextXXX takes ImGuiPopupFlags just like OpenPopup() and unlike BeginPopup(). For full consistency, we may add ImGuiWindowFlags to the BeginPopupContextXXX functions in the future.
 //  - IMPORTANT: Notice that we exceptionally default their flags to 1 (== ImGuiPopupFlags_MouseButtonRight) for backward compatibility with older API taking 'int mouse_button = 1' parameter, so if you add other flags remember to re-add the ImGuiPopupFlags_MouseButtonRight.
-pub const beginPopupContextItem = ImGui_BeginPopupContextItem;                       // Implied str_id = NULL, popup_flags = 1
-pub const beginPopupContextItemEx = ImGui_BeginPopupContextItemEx;                   // open+begin popup when clicked on last item. Use str_id==NULL to associate the popup to previous item. If you want to use that on a non-interactive item such as Text() you need to pass in an explicit ID here. read comments in .cpp!
-pub const beginPopupContextWindow = ImGui_BeginPopupContextWindow;                   // Implied str_id = NULL, popup_flags = 1
-pub const beginPopupContextWindowEx = ImGui_BeginPopupContextWindowEx;               // open+begin popup when clicked on current window.
-pub const beginPopupContextVoid = ImGui_BeginPopupContextVoid;                       // Implied str_id = NULL, popup_flags = 1
-pub const beginPopupContextVoidEx = ImGui_BeginPopupContextVoidEx;                   // open+begin popup when clicked in void (where there are no windows).
+pub const beginPopupContextItem = ImGui_BeginPopupContextItem;                                 // Implied str_id = NULL, popup_flags = 1
+pub const beginPopupContextItemEx = ImGui_BeginPopupContextItemEx;                             // open+begin popup when clicked on last item. Use str_id==NULL to associate the popup to previous item. If you want to use that on a non-interactive item such as Text() you need to pass in an explicit ID here. read comments in .cpp!
+pub const beginPopupContextWindow = ImGui_BeginPopupContextWindow;                             // Implied str_id = NULL, popup_flags = 1
+pub const beginPopupContextWindowEx = ImGui_BeginPopupContextWindowEx;                         // open+begin popup when clicked on current window.
+pub const beginPopupContextVoid = ImGui_BeginPopupContextVoid;                                 // Implied str_id = NULL, popup_flags = 1
+pub const beginPopupContextVoidEx = ImGui_BeginPopupContextVoidEx;                             // open+begin popup when clicked in void (where there are no windows).
 // Popups: query functions
 //  - IsPopupOpen(): return true if the popup is open at the current BeginPopup() level of the popup stack.
 //  - IsPopupOpen() with ImGuiPopupFlags_AnyPopupId: return true if any popup is open at the current BeginPopup() level of the popup stack.
 //  - IsPopupOpen() with ImGuiPopupFlags_AnyPopupId + ImGuiPopupFlags_AnyPopupLevel: return true if any popup is open.
-pub const isPopupOpen = ImGui_IsPopupOpen;                                           // return true if the popup is open.
+pub const isPopupOpen = ImGui_IsPopupOpen;                                                     // return true if the popup is open.
 // Tables
 // - Full-featured replacement for old Columns API.
 // - See Demo->Tables for demo code. See top of imgui_tables.cpp for general commentary.
@@ -2293,20 +2463,18 @@ pub const isPopupOpen = ImGui_IsPopupOpen;                                      
 //      TableNextColumn() will automatically wrap-around into the next row if needed.
 //    - IMPORTANT: Comparatively to the old Columns() API, we need to call TableNextColumn() for the first column!
 //    - Summary of possible call flow:
-//        --------------------------------------------------------------------------------------------------------
-//        TableNextRow() -> TableSetColumnIndex(0) -> Text("Hello 0") -> TableSetColumnIndex(1) -> Text("Hello 1")  // OK
-//        TableNextRow() -> TableNextColumn()      -> Text("Hello 0") -> TableNextColumn()      -> Text("Hello 1")  // OK
-//                          TableNextColumn()      -> Text("Hello 0") -> TableNextColumn()      -> Text("Hello 1")  // OK: TableNextColumn() automatically gets to next row!
-//        TableNextRow()                           -> Text("Hello 0")                                               // Not OK! Missing TableSetColumnIndex() or TableNextColumn()! Text will not appear!
-//        --------------------------------------------------------------------------------------------------------
+//        - TableNextRow() -> TableSetColumnIndex(0) -> Text("Hello 0") -> TableSetColumnIndex(1) -> Text("Hello 1")  // OK
+//        - TableNextRow() -> TableNextColumn()      -> Text("Hello 0") -> TableNextColumn()      -> Text("Hello 1")  // OK
+//        -                   TableNextColumn()      -> Text("Hello 0") -> TableNextColumn()      -> Text("Hello 1")  // OK: TableNextColumn() automatically gets to next row!
+//        - TableNextRow()                           -> Text("Hello 0")                                               // Not OK! Missing TableSetColumnIndex() or TableNextColumn()! Text will not appear!
 // - 5. Call EndTable()
-pub const beginTable = ImGui_BeginTable;                                             // Implied outer_size = ImVec2(0.0f, 0.0f), inner_width = 0.0f
+pub const beginTable = ImGui_BeginTable;                                                       // Implied outer_size = ImVec2(0.0f, 0.0f), inner_width = 0.0f
 pub const beginTableEx = ImGui_BeginTableEx;
-pub const endTable = ImGui_EndTable;                                                 // only call EndTable() if BeginTable() returns true!
-pub const tableNextRow = ImGui_TableNextRow;                                         // Implied row_flags = 0, min_row_height = 0.0f
-pub const tableNextRowEx = ImGui_TableNextRowEx;                                     // append into the first cell of a new row.
-pub const tableNextColumn = ImGui_TableNextColumn;                                   // append into the next column (or first column of next row if currently in last column). Return true when column is visible.
-pub const tableSetColumnIndex = ImGui_TableSetColumnIndex;                           // append into the specified column. Return true when column is visible.
+pub const endTable = ImGui_EndTable;                                                           // only call EndTable() if BeginTable() returns true!
+pub const tableNextRow = ImGui_TableNextRow;                                                   // Implied row_flags = 0, min_row_height = 0.0f
+pub const tableNextRowEx = ImGui_TableNextRowEx;                                               // append into the first cell of a new row.
+pub const tableNextColumn = ImGui_TableNextColumn;                                             // append into the next column (or first column of next row if currently in last column). Return true when column is visible.
+pub const tableSetColumnIndex = ImGui_TableSetColumnIndex;                                     // append into the specified column. Return true when column is visible.
 // Tables: Headers & Columns declaration
 // - Use TableSetupColumn() to specify label, resizing policy, default width/weight, id, various other flags etc.
 // - Use TableHeadersRow() to create a header row and automatically submit a TableHeader() for each column.
@@ -2315,66 +2483,88 @@ pub const tableSetColumnIndex = ImGui_TableSetColumnIndex;                      
 // - You may manually submit headers using TableNextRow() + TableHeader() calls, but this is only useful in
 //   some advanced use cases (e.g. adding custom widgets in header row).
 // - Use TableSetupScrollFreeze() to lock columns/rows so they stay visible when scrolled.
-pub const tableSetupColumn = ImGui_TableSetupColumn;                                 // Implied init_width_or_weight = 0.0f, user_id = 0
+pub const tableSetupColumn = ImGui_TableSetupColumn;                                           // Implied init_width_or_weight = 0.0f, user_id = 0
 pub const tableSetupColumnEx = ImGui_TableSetupColumnEx;
-pub const tableSetupScrollFreeze = ImGui_TableSetupScrollFreeze;                     // lock columns/rows so they stay visible when scrolled.
-pub const tableHeader = ImGui_TableHeader;                                           // submit one header cell manually (rarely used)
-pub const tableHeadersRow = ImGui_TableHeadersRow;                                   // submit a row with headers cells based on data provided to TableSetupColumn() + submit context menu
-pub const tableAngledHeadersRow = ImGui_TableAngledHeadersRow;                       // submit a row with angled headers for every column with the ImGuiTableColumnFlags_AngledHeader flag. MUST BE FIRST ROW.
+pub const tableSetupScrollFreeze = ImGui_TableSetupScrollFreeze;                               // lock columns/rows so they stay visible when scrolled.
+pub const tableHeader = ImGui_TableHeader;                                                     // submit one header cell manually (rarely used)
+pub const tableHeadersRow = ImGui_TableHeadersRow;                                             // submit a row with headers cells based on data provided to TableSetupColumn() + submit context menu
+pub const tableAngledHeadersRow = ImGui_TableAngledHeadersRow;                                 // submit a row with angled headers for every column with the ImGuiTableColumnFlags_AngledHeader flag. MUST BE FIRST ROW.
 // Tables: Sorting & Miscellaneous functions
 // - Sorting: call TableGetSortSpecs() to retrieve latest sort specs for the table. NULL when not sorting.
 //   When 'sort_specs->SpecsDirty == true' you should sort your data. It will be true when sorting specs have
 //   changed since last call, or the first time. Make sure to set 'SpecsDirty = false' after sorting,
 //   else you may wastefully sort your data every frame!
 // - Functions args 'int column_n' treat the default value of -1 as the same as passing the current column index.
-pub const tableGetSortSpecs = ImGui_TableGetSortSpecs;                               // get latest sort specs for the table (NULL if not sorting).  Lifetime: don't hold on this pointer over multiple frames or past any subsequent call to BeginTable().
-pub const tableGetColumnCount = ImGui_TableGetColumnCount;                           // return number of columns (value passed to BeginTable)
-pub const tableGetColumnIndex = ImGui_TableGetColumnIndex;                           // return current column index.
-pub const tableGetRowIndex = ImGui_TableGetRowIndex;                                 // return current row index.
-pub const tableGetColumnName = ImGui_TableGetColumnName;                             // return "" if column didn't have a name declared by TableSetupColumn(). Pass -1 to use current column.
-pub const tableGetColumnFlags = ImGui_TableGetColumnFlags;                           // return column flags so you can query their Enabled/Visible/Sorted/Hovered status flags. Pass -1 to use current column.
-pub const tableSetColumnEnabled = ImGui_TableSetColumnEnabled;                       // change user accessible enabled/disabled state of a column. Set to false to hide the column. User can use the context menu to change this themselves (right-click in headers, or right-click in columns body with ImGuiTableFlags_ContextMenuInBody)
-pub const tableSetBgColor = ImGui_TableSetBgColor;                                   // change the color of a cell, row, or column. See ImGuiTableBgTarget_ flags for details.
+pub const tableGetSortSpecs = ImGui_TableGetSortSpecs;                                         // get latest sort specs for the table (NULL if not sorting).  Lifetime: don't hold on this pointer over multiple frames or past any subsequent call to BeginTable().
+pub const tableGetColumnCount = ImGui_TableGetColumnCount;                                     // return number of columns (value passed to BeginTable)
+pub const tableGetColumnIndex = ImGui_TableGetColumnIndex;                                     // return current column index.
+pub const tableGetRowIndex = ImGui_TableGetRowIndex;                                           // return current row index.
+pub const tableGetColumnName = ImGui_TableGetColumnName;                                       // return "" if column didn't have a name declared by TableSetupColumn(). Pass -1 to use current column.
+pub const tableGetColumnFlags = ImGui_TableGetColumnFlags;                                     // return column flags so you can query their Enabled/Visible/Sorted/Hovered status flags. Pass -1 to use current column.
+pub const tableSetColumnEnabled = ImGui_TableSetColumnEnabled;                                 // change user accessible enabled/disabled state of a column. Set to false to hide the column. User can use the context menu to change this themselves (right-click in headers, or right-click in columns body with ImGuiTableFlags_ContextMenuInBody)
+pub const tableSetBgColor = ImGui_TableSetBgColor;                                             // change the color of a cell, row, or column. See ImGuiTableBgTarget_ flags for details.
 // Legacy Columns API (prefer using Tables!)
 // - You can also use SameLine(pos_x) to mimic simplified columns.
-pub const columns = ImGui_Columns;                                                   // Implied count = 1, id = NULL, border = true
+pub const columns = ImGui_Columns;                                                             // Implied count = 1, id = NULL, border = true
 pub const columnsEx = ImGui_ColumnsEx;
-pub const nextColumn = ImGui_NextColumn;                                             // next column, defaults to current row or next row if the current row is finished
-pub const getColumnIndex = ImGui_GetColumnIndex;                                     // get current column index
-pub const getColumnWidth = ImGui_GetColumnWidth;                                     // get column width (in pixels). pass -1 to use current column
-pub const setColumnWidth = ImGui_SetColumnWidth;                                     // set column width (in pixels). pass -1 to use current column
-pub const getColumnOffset = ImGui_GetColumnOffset;                                   // get position of column line (in pixels, from the left side of the contents region). pass -1 to use current column, otherwise 0..GetColumnsCount() inclusive. column 0 is typically 0.0f
-pub const setColumnOffset = ImGui_SetColumnOffset;                                   // set position of column line (in pixels, from the left side of the contents region). pass -1 to use current column
+pub const nextColumn = ImGui_NextColumn;                                                       // next column, defaults to current row or next row if the current row is finished
+pub const getColumnIndex = ImGui_GetColumnIndex;                                               // get current column index
+pub const getColumnWidth = ImGui_GetColumnWidth;                                               // get column width (in pixels). pass -1 to use current column
+pub const setColumnWidth = ImGui_SetColumnWidth;                                               // set column width (in pixels). pass -1 to use current column
+pub const getColumnOffset = ImGui_GetColumnOffset;                                             // get position of column line (in pixels, from the left side of the contents region). pass -1 to use current column, otherwise 0..GetColumnsCount() inclusive. column 0 is typically 0.0f
+pub const setColumnOffset = ImGui_SetColumnOffset;                                             // set position of column line (in pixels, from the left side of the contents region). pass -1 to use current column
 pub const getColumnsCount = ImGui_GetColumnsCount;
 // Tab Bars, Tabs
 // - Note: Tabs are automatically created by the docking system (when in 'docking' branch). Use this to create tab bars/tabs yourself.
-pub const beginTabBar = ImGui_BeginTabBar;                                           // create and append into a TabBar
-pub const endTabBar = ImGui_EndTabBar;                                               // only call EndTabBar() if BeginTabBar() returns true!
-pub const beginTabItem = ImGui_BeginTabItem;                                         // create a Tab. Returns true if the Tab is selected.
-pub const endTabItem = ImGui_EndTabItem;                                             // only call EndTabItem() if BeginTabItem() returns true!
-pub const tabItemButton = ImGui_TabItemButton;                                       // create a Tab behaving like a button. return true when clicked. cannot be selected in the tab bar.
-pub const setTabItemClosed = ImGui_SetTabItemClosed;                                 // notify TabBar or Docking system of a closed tab/window ahead (useful to reduce visual flicker on reorderable tab bars). For tab-bar: call after BeginTabBar() and before Tab submissions. Otherwise call with a window name.
+pub const beginTabBar = ImGui_BeginTabBar;                                                     // create and append into a TabBar
+pub const endTabBar = ImGui_EndTabBar;                                                         // only call EndTabBar() if BeginTabBar() returns true!
+pub const beginTabItem = ImGui_BeginTabItem;                                                   // create a Tab. Returns true if the Tab is selected.
+pub const endTabItem = ImGui_EndTabItem;                                                       // only call EndTabItem() if BeginTabItem() returns true!
+pub const tabItemButton = ImGui_TabItemButton;                                                 // create a Tab behaving like a button. return true when clicked. cannot be selected in the tab bar.
+pub const setTabItemClosed = ImGui_SetTabItemClosed;                                           // notify TabBar or Docking system of a closed tab/window ahead (useful to reduce visual flicker on reorderable tab bars). For tab-bar: call after BeginTabBar() and before Tab submissions. Otherwise call with a window name.
+// Docking
+// [BETA API] Enable with io.ConfigFlags |= ImGuiConfigFlags_DockingEnable.
+// Note: You can use most Docking facilities without calling any API. You DO NOT need to call DockSpace() to use Docking!
+// - Drag from window title bar or their tab to dock/undock. Hold SHIFT to disable docking.
+// - Drag from window menu button (upper-left button) to undock an entire node (all windows).
+// - When io.ConfigDockingWithShift == true, you instead need to hold SHIFT to enable docking.
+// About dockspaces:
+// - Use DockSpaceOverViewport() to create an explicit dock node covering the screen or a specific viewport.
+//   This is often used with ImGuiDockNodeFlags_PassthruCentralNode to make it transparent.
+// - Use DockSpace() to create an explicit dock node _within_ an existing window. See Docking demo for details.
+// - Important: Dockspaces need to be submitted _before_ any window they can host. Submit it early in your frame!
+// - Important: Dockspaces need to be kept alive if hidden, otherwise windows docked into it will be undocked.
+//   e.g. if you have multiple tabs with a dockspace inside each tab: submit the non-visible dockspaces with ImGuiDockNodeFlags_KeepAliveOnly.
+pub const dockSpace = ImGui_DockSpace;                                                         // Implied size = ImVec2(0, 0), flags = 0, window_class = NULL
+pub const dockSpaceEx = ImGui_DockSpaceEx;
+pub const dockSpaceOverViewport = ImGui_DockSpaceOverViewport;                                 // Implied viewport = NULL, flags = 0, window_class = NULL
+pub const dockSpaceOverViewportEx = ImGui_DockSpaceOverViewportEx;
+pub const setNextWindowDockID = ImGui_SetNextWindowDockID;                                     // set next window dock id
+pub const setNextWindowClass = ImGui_SetNextWindowClass;                                       // set next window class (control docking compatibility + provide hints to platform backend via custom viewport flags and platform parent/child relationship)
+pub const getWindowDockID = ImGui_GetWindowDockID;
+pub const isWindowDocked = ImGui_IsWindowDocked;                                               // is current window docked into another window?
 // Logging/Capture
 // - All text output from the interface can be captured into tty/file/clipboard. By default, tree nodes are automatically opened during logging.
-pub const logToTTY = ImGui_LogToTTY;                                                 // start logging to tty (stdout)
-pub const logToFile = ImGui_LogToFile;                                               // start logging to file
-pub const logToClipboard = ImGui_LogToClipboard;                                     // start logging to OS clipboard
-pub const logFinish = ImGui_LogFinish;                                               // stop logging (close file, etc.)
-pub const logButtons = ImGui_LogButtons;                                             // helper to display buttons for logging to tty/file/clipboard
-pub const logText = ImGui_LogText;                                                   // pass text data straight to log (without being displayed)
+pub const logToTTY = ImGui_LogToTTY;                                                           // start logging to tty (stdout)
+pub const logToFile = ImGui_LogToFile;                                                         // start logging to file
+pub const logToClipboard = ImGui_LogToClipboard;                                               // start logging to OS clipboard
+pub const logFinish = ImGui_LogFinish;                                                         // stop logging (close file, etc.)
+pub const logButtons = ImGui_LogButtons;                                                       // helper to display buttons for logging to tty/file/clipboard
+pub const logText = ImGui_LogText;                                                             // pass text data straight to log (without being displayed)
+pub const logTextUnformatted = ImGui_LogTextUnformatted;                                       // pass text data straight to log (without being displayed)
 pub const logTextV = ImGui_LogTextV;
 // Drag and Drop
 // - On source items, call BeginDragDropSource(), if it returns true also call SetDragDropPayload() + EndDragDropSource().
 // - On target candidates, call BeginDragDropTarget(), if it returns true also call AcceptDragDropPayload() + EndDragDropTarget().
 // - If you stop calling BeginDragDropSource() the payload is preserved however it won't have a preview tooltip (we currently display a fallback "..." tooltip, see #1725)
 // - An item can be both drag source and drop target.
-pub const beginDragDropSource = ImGui_BeginDragDropSource;                           // call after submitting an item which may be dragged. when this return true, you can call SetDragDropPayload() + EndDragDropSource()
-pub const setDragDropPayload = ImGui_SetDragDropPayload;                             // type is a user defined string of maximum 32 characters. Strings starting with '_' are reserved for dear imgui internal types. Data is copied and held by imgui. Return true when payload has been accepted.
-pub const endDragDropSource = ImGui_EndDragDropSource;                               // only call EndDragDropSource() if BeginDragDropSource() returns true!
-pub const beginDragDropTarget = ImGui_BeginDragDropTarget;                           // call after submitting an item that may receive a payload. If this returns true, you can call AcceptDragDropPayload() + EndDragDropTarget()
-pub const acceptDragDropPayload = ImGui_AcceptDragDropPayload;                       // accept contents of a given type. If ImGuiDragDropFlags_AcceptBeforeDelivery is set you can peek into the payload before the mouse button is released.
-pub const endDragDropTarget = ImGui_EndDragDropTarget;                               // only call EndDragDropTarget() if BeginDragDropTarget() returns true!
-pub const getDragDropPayload = ImGui_GetDragDropPayload;                             // peek directly into the current payload from anywhere. returns NULL when drag and drop is finished or inactive. use ImGuiPayload::IsDataType() to test for the payload type.
+pub const beginDragDropSource = ImGui_BeginDragDropSource;                                     // call after submitting an item which may be dragged. when this return true, you can call SetDragDropPayload() + EndDragDropSource()
+pub const setDragDropPayload = ImGui_SetDragDropPayload;                                       // type is a user defined string of maximum 32 characters. Strings starting with '_' are reserved for dear imgui internal types. Data is copied and held by imgui. Return true when payload has been accepted.
+pub const endDragDropSource = ImGui_EndDragDropSource;                                         // only call EndDragDropSource() if BeginDragDropSource() returns true!
+pub const beginDragDropTarget = ImGui_BeginDragDropTarget;                                     // call after submitting an item that may receive a payload. If this returns true, you can call AcceptDragDropPayload() + EndDragDropTarget()
+pub const acceptDragDropPayload = ImGui_AcceptDragDropPayload;                                 // accept contents of a given type. If ImGuiDragDropFlags_AcceptBeforeDelivery is set you can peek into the payload before the mouse button is released.
+pub const endDragDropTarget = ImGui_EndDragDropTarget;                                         // only call EndDragDropTarget() if BeginDragDropTarget() returns true!
+pub const getDragDropPayload = ImGui_GetDragDropPayload;                                       // peek directly into the current payload from anywhere. returns NULL when drag and drop is finished or inactive. use ImGuiPayload::IsDataType() to test for the payload type.
 // Disabling [BETA API]
 // - Disable all user interactions and dim items visuals (applying style.DisabledAlpha over current colors)
 // - Those can be nested but it cannot be used to enable an already disabled section (a single BeginDisabled(true) in the stack is enough to keep everything disabled)
@@ -2387,51 +2577,53 @@ pub const pushClipRect = ImGui_PushClipRect;
 pub const popClipRect = ImGui_PopClipRect;
 // Focus, Activation
 // - Prefer using "SetItemDefaultFocus()" over "if (IsWindowAppearing()) SetScrollHereY()" when applicable to signify "this is the default item"
-pub const setItemDefaultFocus = ImGui_SetItemDefaultFocus;                           // make last item the default focused item of a window.
-pub const setKeyboardFocusHere = ImGui_SetKeyboardFocusHere;                         // Implied offset = 0
-pub const setKeyboardFocusHereEx = ImGui_SetKeyboardFocusHereEx;                     // focus keyboard on the next widget. Use positive 'offset' to access sub components of a multiple component widget. Use -1 to access previous widget.
+pub const setItemDefaultFocus = ImGui_SetItemDefaultFocus;                                     // make last item the default focused item of a window.
+pub const setKeyboardFocusHere = ImGui_SetKeyboardFocusHere;                                   // Implied offset = 0
+pub const setKeyboardFocusHereEx = ImGui_SetKeyboardFocusHereEx;                               // focus keyboard on the next widget. Use positive 'offset' to access sub components of a multiple component widget. Use -1 to access previous widget.
 // Overlapping mode
-pub const setNextItemAllowOverlap = ImGui_SetNextItemAllowOverlap;                   // allow next item to be overlapped by a subsequent item. Useful with invisible buttons, selectable, treenode covering an area where subsequent items may need to be added. Note that both Selectable() and TreeNode() have dedicated flags doing this.
+pub const setNextItemAllowOverlap = ImGui_SetNextItemAllowOverlap;                             // allow next item to be overlapped by a subsequent item. Useful with invisible buttons, selectable, treenode covering an area where subsequent items may need to be added. Note that both Selectable() and TreeNode() have dedicated flags doing this.
 // Item/Widgets Utilities and Query Functions
 // - Most of the functions are referring to the previous Item that has been submitted.
 // - See Demo Window under "Widgets->Querying Status" for an interactive visualization of most of those functions.
-pub const isItemHovered = ImGui_IsItemHovered;                                       // is the last item hovered? (and usable, aka not blocked by a popup, etc.). See ImGuiHoveredFlags for more options.
-pub const isItemActive = ImGui_IsItemActive;                                         // is the last item active? (e.g. button being held, text field being edited. This will continuously return true while holding mouse button on an item. Items that don't interact will always return false)
-pub const isItemFocused = ImGui_IsItemFocused;                                       // is the last item focused for keyboard/gamepad navigation?
-pub const isItemClicked = ImGui_IsItemClicked;                                       // Implied mouse_button = 0
-pub const isItemClickedEx = ImGui_IsItemClickedEx;                                   // is the last item hovered and mouse clicked on? (**)  == IsMouseClicked(mouse_button) && IsItemHovered()Important. (**) this is NOT equivalent to the behavior of e.g. Button(). Read comments in function definition.
-pub const isItemVisible = ImGui_IsItemVisible;                                       // is the last item visible? (items may be out of sight because of clipping/scrolling)
-pub const isItemEdited = ImGui_IsItemEdited;                                         // did the last item modify its underlying value this frame? or was pressed? This is generally the same as the "bool" return value of many widgets.
-pub const isItemActivated = ImGui_IsItemActivated;                                   // was the last item just made active (item was previously inactive).
-pub const isItemDeactivated = ImGui_IsItemDeactivated;                               // was the last item just made inactive (item was previously active). Useful for Undo/Redo patterns with widgets that require continuous editing.
-pub const isItemDeactivatedAfterEdit = ImGui_IsItemDeactivatedAfterEdit;             // was the last item just made inactive and made a value change when it was active? (e.g. Slider/Drag moved). Useful for Undo/Redo patterns with widgets that require continuous editing. Note that you may get false positives (some widgets such as Combo()/ListBox()/Selectable() will return true even when clicking an already selected item).
-pub const isItemToggledOpen = ImGui_IsItemToggledOpen;                               // was the last item open state toggled? set by TreeNode().
-pub const isAnyItemHovered = ImGui_IsAnyItemHovered;                                 // is any item hovered?
-pub const isAnyItemActive = ImGui_IsAnyItemActive;                                   // is any item active?
-pub const isAnyItemFocused = ImGui_IsAnyItemFocused;                                 // is any item focused?
-pub const getItemID = ImGui_GetItemID;                                               // get ID of last item (~~ often same ImGui::GetID(label) beforehand)
-pub const getItemRectMin = ImGui_GetItemRectMin;                                     // get upper-left bounding rectangle of the last item (screen space)
-pub const getItemRectMax = ImGui_GetItemRectMax;                                     // get lower-right bounding rectangle of the last item (screen space)
-pub const getItemRectSize = ImGui_GetItemRectSize;                                   // get size of last item
+pub const isItemHovered = ImGui_IsItemHovered;                                                 // is the last item hovered? (and usable, aka not blocked by a popup, etc.). See ImGuiHoveredFlags for more options.
+pub const isItemActive = ImGui_IsItemActive;                                                   // is the last item active? (e.g. button being held, text field being edited. This will continuously return true while holding mouse button on an item. Items that don't interact will always return false)
+pub const isItemFocused = ImGui_IsItemFocused;                                                 // is the last item focused for keyboard/gamepad navigation?
+pub const isItemClicked = ImGui_IsItemClicked;                                                 // Implied mouse_button = 0
+pub const isItemClickedEx = ImGui_IsItemClickedEx;                                             // is the last item hovered and mouse clicked on? (**)  == IsMouseClicked(mouse_button) && IsItemHovered()Important. (**) this is NOT equivalent to the behavior of e.g. Button(). Read comments in function definition.
+pub const isItemVisible = ImGui_IsItemVisible;                                                 // is the last item visible? (items may be out of sight because of clipping/scrolling)
+pub const isItemEdited = ImGui_IsItemEdited;                                                   // did the last item modify its underlying value this frame? or was pressed? This is generally the same as the "bool" return value of many widgets.
+pub const isItemActivated = ImGui_IsItemActivated;                                             // was the last item just made active (item was previously inactive).
+pub const isItemDeactivated = ImGui_IsItemDeactivated;                                         // was the last item just made inactive (item was previously active). Useful for Undo/Redo patterns with widgets that require continuous editing.
+pub const isItemDeactivatedAfterEdit = ImGui_IsItemDeactivatedAfterEdit;                       // was the last item just made inactive and made a value change when it was active? (e.g. Slider/Drag moved). Useful for Undo/Redo patterns with widgets that require continuous editing. Note that you may get false positives (some widgets such as Combo()/ListBox()/Selectable() will return true even when clicking an already selected item).
+pub const isItemToggledOpen = ImGui_IsItemToggledOpen;                                         // was the last item open state toggled? set by TreeNode().
+pub const isAnyItemHovered = ImGui_IsAnyItemHovered;                                           // is any item hovered?
+pub const isAnyItemActive = ImGui_IsAnyItemActive;                                             // is any item active?
+pub const isAnyItemFocused = ImGui_IsAnyItemFocused;                                           // is any item focused?
+pub const getItemID = ImGui_GetItemID;                                                         // get ID of last item (~~ often same ImGui::GetID(label) beforehand)
+pub const getItemRectMin = ImGui_GetItemRectMin;                                               // get upper-left bounding rectangle of the last item (screen space)
+pub const getItemRectMax = ImGui_GetItemRectMax;                                               // get lower-right bounding rectangle of the last item (screen space)
+pub const getItemRectSize = ImGui_GetItemRectSize;                                             // get size of last item
 // Viewports
 // - Currently represents the Platform Window created by the application which is hosting our Dear ImGui windows.
 // - In 'docking' branch with multi-viewport enabled, we extend this concept to have multiple active viewports.
 // - In the future we will extend this concept further to also represent Platform Monitor and support a "no main platform window" operation mode.
-pub const getMainViewport = ImGui_GetMainViewport;                                   // return primary/default viewport. This can never be NULL.
+pub const getMainViewport = ImGui_GetMainViewport;                                             // return primary/default viewport. This can never be NULL.
 // Background/Foreground Draw Lists
-pub const getBackgroundDrawList = ImGui_GetBackgroundDrawList;                       // this draw list will be the first rendered one. Useful to quickly draw shapes/text behind dear imgui contents.
-pub const getForegroundDrawList = ImGui_GetForegroundDrawList;                       // this draw list will be the last rendered one. Useful to quickly draw shapes/text over dear imgui contents.
+pub const getBackgroundDrawList = ImGui_GetBackgroundDrawList;                                 // get background draw list for the viewport associated to the current window. this draw list will be the first rendering one. Useful to quickly draw shapes/text behind dear imgui contents.
+pub const getForegroundDrawList = ImGui_GetForegroundDrawList;                                 // get foreground draw list for the viewport associated to the current window. this draw list will be the last rendered one. Useful to quickly draw shapes/text over dear imgui contents.
+pub const getBackgroundDrawListImGuiViewportPtr = ImGui_GetBackgroundDrawListImGuiViewportPtr; // get background draw list for the given viewport. this draw list will be the first rendering one. Useful to quickly draw shapes/text behind dear imgui contents.
+pub const getForegroundDrawListImGuiViewportPtr = ImGui_GetForegroundDrawListImGuiViewportPtr; // get foreground draw list for the given viewport. this draw list will be the last rendered one. Useful to quickly draw shapes/text over dear imgui contents.
 // Miscellaneous Utilities
-pub const isRectVisibleBySize = ImGui_IsRectVisibleBySize;                           // test if rectangle (of given size, starting from cursor position) is visible / not clipped.
-pub const isRectVisible = ImGui_IsRectVisible;                                       // test if rectangle (in screen space) is visible / not clipped. to perform coarse clipping on user's side.
-pub const getTime = ImGui_GetTime;                                                   // get global imgui time. incremented by io.DeltaTime every frame.
-pub const getFrameCount = ImGui_GetFrameCount;                                       // get global imgui frame count. incremented by 1 every frame.
-pub const getDrawListSharedData = ImGui_GetDrawListSharedData;                       // you may use this when creating your own ImDrawList instances.
-pub const getStyleColorName = ImGui_GetStyleColorName;                               // get a string corresponding to the enum value (for display, saving, etc.).
-pub const setStateStorage = ImGui_SetStateStorage;                                   // replace current window storage with our own (if you want to manipulate it yourself, typically clear subsection of it)
+pub const isRectVisibleBySize = ImGui_IsRectVisibleBySize;                                     // test if rectangle (of given size, starting from cursor position) is visible / not clipped.
+pub const isRectVisible = ImGui_IsRectVisible;                                                 // test if rectangle (in screen space) is visible / not clipped. to perform coarse clipping on user's side.
+pub const getTime = ImGui_GetTime;                                                             // get global imgui time. incremented by io.DeltaTime every frame.
+pub const getFrameCount = ImGui_GetFrameCount;                                                 // get global imgui frame count. incremented by 1 every frame.
+pub const getDrawListSharedData = ImGui_GetDrawListSharedData;                                 // you may use this when creating your own ImDrawList instances.
+pub const getStyleColorName = ImGui_GetStyleColorName;                                         // get a string corresponding to the enum value (for display, saving, etc.).
+pub const setStateStorage = ImGui_SetStateStorage;                                             // replace current window storage with our own (if you want to manipulate it yourself, typically clear subsection of it)
 pub const getStateStorage = ImGui_GetStateStorage;
 // Text Utilities
-pub const calcTextSize = ImGui_CalcTextSize;                                         // Implied text_end = NULL, hide_text_after_double_hash = false, wrap_width = -1.0f
+pub const calcTextSize = ImGui_CalcTextSize;                                                   // Implied text_end = NULL, hide_text_after_double_hash = false, wrap_width = -1.0f
 pub const calcTextSizeEx = ImGui_CalcTextSizeEx;
 // Color Utilities
 pub const colorConvertU32ToFloat4 = ImGui_ColorConvertU32ToFloat4;
@@ -2443,37 +2635,37 @@ pub const colorConvertHSVtoRGB = ImGui_ColorConvertHSVtoRGB;
 // - before v1.87, we used ImGuiKey to carry native/user indices as defined by each backends. About use of those legacy ImGuiKey values:
 //  - without IMGUI_DISABLE_OBSOLETE_KEYIO (legacy support): you can still use your legacy native/user indices (< 512) according to how your backend/engine stored them in io.KeysDown[], but need to cast them to ImGuiKey.
 //  - with    IMGUI_DISABLE_OBSOLETE_KEYIO (this is the way forward): any use of ImGuiKey will assert with key < 512. GetKeyIndex() is pass-through and therefore deprecated (gone if IMGUI_DISABLE_OBSOLETE_KEYIO is defined).
-pub const isKeyDown = ImGui_IsKeyDown;                                               // is key being held.
-pub const isKeyPressed = ImGui_IsKeyPressed;                                         // Implied repeat = true
-pub const isKeyPressedEx = ImGui_IsKeyPressedEx;                                     // was key pressed (went from !Down to Down)? if repeat=true, uses io.KeyRepeatDelay / KeyRepeatRate
-pub const isKeyReleased = ImGui_IsKeyReleased;                                       // was key released (went from Down to !Down)?
-pub const isKeyChordPressed = ImGui_IsKeyChordPressed;                               // was key chord (mods + key) pressed, e.g. you can pass 'ImGuiMod_Ctrl | ImGuiKey_S' as a key-chord. This doesn't do any routing or focus check, please consider using Shortcut() function instead.
-pub const getKeyPressedAmount = ImGui_GetKeyPressedAmount;                           // uses provided repeat rate/delay. return a count, most often 0 or 1 but might be >1 if RepeatRate is small enough that DeltaTime > RepeatRate
-pub const getKeyName = ImGui_GetKeyName;                                             // [DEBUG] returns English name of the key. Those names a provided for debugging purpose and are not meant to be saved persistently not compared.
-pub const setNextFrameWantCaptureKeyboard = ImGui_SetNextFrameWantCaptureKeyboard;   // Override io.WantCaptureKeyboard flag next frame (said flag is left for your application to handle, typically when true it instructs your app to ignore inputs). e.g. force capture keyboard when your widget is being hovered. This is equivalent to setting "io.WantCaptureKeyboard = want_capture_keyboard"; after the next NewFrame() call.
+pub const isKeyDown = ImGui_IsKeyDown;                                                         // is key being held.
+pub const isKeyPressed = ImGui_IsKeyPressed;                                                   // Implied repeat = true
+pub const isKeyPressedEx = ImGui_IsKeyPressedEx;                                               // was key pressed (went from !Down to Down)? if repeat=true, uses io.KeyRepeatDelay / KeyRepeatRate
+pub const isKeyReleased = ImGui_IsKeyReleased;                                                 // was key released (went from Down to !Down)?
+pub const isKeyChordPressed = ImGui_IsKeyChordPressed;                                         // was key chord (mods + key) pressed, e.g. you can pass 'ImGuiMod_Ctrl | ImGuiKey_S' as a key-chord. This doesn't do any routing or focus check, please consider using Shortcut() function instead.
+pub const getKeyPressedAmount = ImGui_GetKeyPressedAmount;                                     // uses provided repeat rate/delay. return a count, most often 0 or 1 but might be >1 if RepeatRate is small enough that DeltaTime > RepeatRate
+pub const getKeyName = ImGui_GetKeyName;                                                       // [DEBUG] returns English name of the key. Those names a provided for debugging purpose and are not meant to be saved persistently not compared.
+pub const setNextFrameWantCaptureKeyboard = ImGui_SetNextFrameWantCaptureKeyboard;             // Override io.WantCaptureKeyboard flag next frame (said flag is left for your application to handle, typically when true it instructs your app to ignore inputs). e.g. force capture keyboard when your widget is being hovered. This is equivalent to setting "io.WantCaptureKeyboard = want_capture_keyboard"; after the next NewFrame() call.
 // Inputs Utilities: Mouse specific
 // - To refer to a mouse button, you may use named enums in your code e.g. ImGuiMouseButton_Left, ImGuiMouseButton_Right.
 // - You can also use regular integer: it is forever guaranteed that 0=Left, 1=Right, 2=Middle.
 // - Dragging operations are only reported after mouse has moved a certain distance away from the initial clicking position (see 'lock_threshold' and 'io.MouseDraggingThreshold')
-pub const isMouseDown = ImGui_IsMouseDown;                                           // is mouse button held?
-pub const isMouseClicked = ImGui_IsMouseClicked;                                     // Implied repeat = false
-pub const isMouseClickedEx = ImGui_IsMouseClickedEx;                                 // did mouse button clicked? (went from !Down to Down). Same as GetMouseClickedCount() == 1.
-pub const isMouseReleased = ImGui_IsMouseReleased;                                   // did mouse button released? (went from Down to !Down)
-pub const isMouseDoubleClicked = ImGui_IsMouseDoubleClicked;                         // did mouse button double-clicked? Same as GetMouseClickedCount() == 2. (note that a double-click will also report IsMouseClicked() == true)
-pub const getMouseClickedCount = ImGui_GetMouseClickedCount;                         // return the number of successive mouse-clicks at the time where a click happen (otherwise 0).
-pub const isMouseHoveringRect = ImGui_IsMouseHoveringRect;                           // Implied clip = true
-pub const isMouseHoveringRectEx = ImGui_IsMouseHoveringRectEx;                       // is mouse hovering given bounding rect (in screen space). clipped by current clipping settings, but disregarding of other consideration of focus/window ordering/popup-block.
-pub const isMousePosValid = ImGui_IsMousePosValid;                                   // by convention we use (-FLT_MAX,-FLT_MAX) to denote that there is no mouse available
-pub const isAnyMouseDown = ImGui_IsAnyMouseDown;                                     // [WILL OBSOLETE] is any mouse button held? This was designed for backends, but prefer having backend maintain a mask of held mouse buttons, because upcoming input queue system will make this invalid.
-pub const getMousePos = ImGui_GetMousePos;                                           // shortcut to ImGui::GetIO().MousePos provided by user, to be consistent with other calls
-pub const getMousePosOnOpeningCurrentPopup = ImGui_GetMousePosOnOpeningCurrentPopup; // retrieve mouse position at the time of opening popup we have BeginPopup() into (helper to avoid user backing that value themselves)
-pub const isMouseDragging = ImGui_IsMouseDragging;                                   // is mouse dragging? (if lock_threshold < -1.0f, uses io.MouseDraggingThreshold)
-pub const getMouseDragDelta = ImGui_GetMouseDragDelta;                               // return the delta from the initial clicking position while the mouse button is pressed or was just released. This is locked and return 0.0f until the mouse moves past a distance threshold at least once (if lock_threshold < -1.0f, uses io.MouseDraggingThreshold)
-pub const resetMouseDragDelta = ImGui_ResetMouseDragDelta;                           // Implied button = 0
-pub const resetMouseDragDeltaEx = ImGui_ResetMouseDragDeltaEx;                       //
-pub const getMouseCursor = ImGui_GetMouseCursor;                                     // get desired mouse cursor shape. Important: reset in ImGui::NewFrame(), this is updated during the frame. valid before Render(). If you use software rendering by setting io.MouseDrawCursor ImGui will render those for you
-pub const setMouseCursor = ImGui_SetMouseCursor;                                     // set desired mouse cursor shape
-pub const setNextFrameWantCaptureMouse = ImGui_SetNextFrameWantCaptureMouse;         // Override io.WantCaptureMouse flag next frame (said flag is left for your application to handle, typical when true it instucts your app to ignore inputs). This is equivalent to setting "io.WantCaptureMouse = want_capture_mouse;" after the next NewFrame() call.
+pub const isMouseDown = ImGui_IsMouseDown;                                                     // is mouse button held?
+pub const isMouseClicked = ImGui_IsMouseClicked;                                               // Implied repeat = false
+pub const isMouseClickedEx = ImGui_IsMouseClickedEx;                                           // did mouse button clicked? (went from !Down to Down). Same as GetMouseClickedCount() == 1.
+pub const isMouseReleased = ImGui_IsMouseReleased;                                             // did mouse button released? (went from Down to !Down)
+pub const isMouseDoubleClicked = ImGui_IsMouseDoubleClicked;                                   // did mouse button double-clicked? Same as GetMouseClickedCount() == 2. (note that a double-click will also report IsMouseClicked() == true)
+pub const getMouseClickedCount = ImGui_GetMouseClickedCount;                                   // return the number of successive mouse-clicks at the time where a click happen (otherwise 0).
+pub const isMouseHoveringRect = ImGui_IsMouseHoveringRect;                                     // Implied clip = true
+pub const isMouseHoveringRectEx = ImGui_IsMouseHoveringRectEx;                                 // is mouse hovering given bounding rect (in screen space). clipped by current clipping settings, but disregarding of other consideration of focus/window ordering/popup-block.
+pub const isMousePosValid = ImGui_IsMousePosValid;                                             // by convention we use (-FLT_MAX,-FLT_MAX) to denote that there is no mouse available
+pub const isAnyMouseDown = ImGui_IsAnyMouseDown;                                               // [WILL OBSOLETE] is any mouse button held? This was designed for backends, but prefer having backend maintain a mask of held mouse buttons, because upcoming input queue system will make this invalid.
+pub const getMousePos = ImGui_GetMousePos;                                                     // shortcut to ImGui::GetIO().MousePos provided by user, to be consistent with other calls
+pub const getMousePosOnOpeningCurrentPopup = ImGui_GetMousePosOnOpeningCurrentPopup;           // retrieve mouse position at the time of opening popup we have BeginPopup() into (helper to avoid user backing that value themselves)
+pub const isMouseDragging = ImGui_IsMouseDragging;                                             // is mouse dragging? (if lock_threshold < -1.0f, uses io.MouseDraggingThreshold)
+pub const getMouseDragDelta = ImGui_GetMouseDragDelta;                                         // return the delta from the initial clicking position while the mouse button is pressed or was just released. This is locked and return 0.0f until the mouse moves past a distance threshold at least once (if lock_threshold < -1.0f, uses io.MouseDraggingThreshold)
+pub const resetMouseDragDelta = ImGui_ResetMouseDragDelta;                                     // Implied button = 0
+pub const resetMouseDragDeltaEx = ImGui_ResetMouseDragDeltaEx;                                 //
+pub const getMouseCursor = ImGui_GetMouseCursor;                                               // get desired mouse cursor shape. Important: reset in ImGui::NewFrame(), this is updated during the frame. valid before Render(). If you use software rendering by setting io.MouseDrawCursor ImGui will render those for you
+pub const setMouseCursor = ImGui_SetMouseCursor;                                               // set desired mouse cursor shape
+pub const setNextFrameWantCaptureMouse = ImGui_SetNextFrameWantCaptureMouse;                   // Override io.WantCaptureMouse flag next frame (said flag is left for your application to handle, typical when true it instucts your app to ignore inputs). This is equivalent to setting "io.WantCaptureMouse = want_capture_mouse;" after the next NewFrame() call.
 // Clipboard Utilities
 // - Also see the LogToClipboard() function to capture GUI into clipboard, or easily output text data to the clipboard.
 pub const getClipboardText = ImGui_GetClipboardText;
@@ -2482,13 +2674,16 @@ pub const setClipboardText = ImGui_SetClipboardText;
 // - The disk functions are automatically called if io.IniFilename != NULL (default is "imgui.ini").
 // - Set io.IniFilename to NULL to load/save manually. Read io.WantSaveIniSettings description about handling .ini saving manually.
 // - Important: default value "imgui.ini" is relative to current working dir! Most apps will want to lock this to an absolute path (e.g. same path as executables).
-pub const loadIniSettingsFromDisk = ImGui_LoadIniSettingsFromDisk;                   // call after CreateContext() and before the first call to NewFrame(). NewFrame() automatically calls LoadIniSettingsFromDisk(io.IniFilename).
-pub const loadIniSettingsFromMemory = ImGui_LoadIniSettingsFromMemory;               // call after CreateContext() and before the first call to NewFrame() to provide .ini data from your own data source.
-pub const saveIniSettingsToDisk = ImGui_SaveIniSettingsToDisk;                       // this is automatically called (if io.IniFilename is not empty) a few seconds after any modification that should be reflected in the .ini file (and also by DestroyContext).
-pub const saveIniSettingsToMemory = ImGui_SaveIniSettingsToMemory;                   // return a zero-terminated string with the .ini data which you can save by your own mean. call when io.WantSaveIniSettings is set, then save data by your own mean and clear io.WantSaveIniSettings.
+pub const loadIniSettingsFromDisk = ImGui_LoadIniSettingsFromDisk;                             // call after CreateContext() and before the first call to NewFrame(). NewFrame() automatically calls LoadIniSettingsFromDisk(io.IniFilename).
+pub const loadIniSettingsFromMemory = ImGui_LoadIniSettingsFromMemory;                         // call after CreateContext() and before the first call to NewFrame() to provide .ini data from your own data source.
+pub const saveIniSettingsToDisk = ImGui_SaveIniSettingsToDisk;                                 // this is automatically called (if io.IniFilename is not empty) a few seconds after any modification that should be reflected in the .ini file (and also by DestroyContext).
+pub const saveIniSettingsToMemory = ImGui_SaveIniSettingsToMemory;                             // return a zero-terminated string with the .ini data which you can save by your own mean. call when io.WantSaveIniSettings is set, then save data by your own mean and clear io.WantSaveIniSettings.
 // Debug Utilities
+// - Your main debugging friend is the ShowMetricsWindow() function, which is also accessible from Demo->Tools->Metrics Debugger
 pub const debugTextEncoding = ImGui_DebugTextEncoding;
-pub const debugCheckVersionAndDataLayout = ImGui_DebugCheckVersionAndDataLayout;     // This is called by IMGUI_CHECKVERSION() macro.
+pub const debugFlashStyleColor = ImGui_DebugFlashStyleColor;
+pub const debugStartItemPicker = ImGui_DebugStartItemPicker;
+pub const debugCheckVersionAndDataLayout = ImGui_DebugCheckVersionAndDataLayout;               // This is called by IMGUI_CHECKVERSION() macro.
 // Memory Allocators
 // - Those functions are not reliant on the current context.
 // - DLL users: heaps and globals are not shared across DLL boundaries! You will need to call SetCurrentContext() + SetAllocatorFunctions()
@@ -2497,8 +2692,18 @@ pub const setAllocatorFunctions = ImGui_SetAllocatorFunctions;
 pub const getAllocatorFunctions = ImGui_GetAllocatorFunctions;
 pub const memAlloc = ImGui_MemAlloc;
 pub const memFree = ImGui_MemFree;
-pub const vector_Construct = ImVector_Construct;                                     // Construct a zero-size ImVector<> (of any type). This is primarily useful when calling ImFontGlyphRangesBuilder_BuildRanges()
-pub const vector_Destruct = ImVector_Destruct;                                       // Destruct an ImVector<> (of any type). Important: Frees the vector memory but does not call destructors on contained objects (if they have them)
+// (Optional) Platform/OS interface for multi-viewport support
+// Read comments around the ImGuiPlatformIO structure for more details.
+// Note: You may use GetWindowViewport() to get the current viewport of the current window.
+pub const getPlatformIO = ImGui_GetPlatformIO;                                                 // platform/renderer functions, for backend to setup + viewports list.
+pub const updatePlatformWindows = ImGui_UpdatePlatformWindows;                                 // call in main loop. will call CreateWindow/ResizeWindow/etc. platform functions for each secondary viewport, and DestroyWindow for each inactive viewport.
+pub const renderPlatformWindowsDefault = ImGui_RenderPlatformWindowsDefault;                   // Implied platform_render_arg = NULL, renderer_render_arg = NULL
+pub const renderPlatformWindowsDefaultEx = ImGui_RenderPlatformWindowsDefaultEx;               // call in main loop. will call RenderWindow/SwapBuffers platform functions for each secondary viewport which doesn't have the ImGuiViewportFlags_Minimized flag set. May be reimplemented by user for custom rendering needs.
+pub const destroyPlatformWindows = ImGui_DestroyPlatformWindows;                               // call DestroyWindow platform functions for all viewports. call from backend Shutdown() if you need to close platform windows before imgui shutdown. otherwise will be called by DestroyContext().
+pub const findViewportByID = ImGui_FindViewportByID;                                           // this is a helper for backends.
+pub const findViewportByPlatformHandle = ImGui_FindViewportByPlatformHandle;                   // this is a helper for backends. the type platform_handle is decided by the backend (e.g. HWND, MyWindow*, GLFWwindow* etc.)
+pub const vector_Construct = ImVector_Construct;                                               // Construct a zero-size ImVector<> (of any type). This is primarily useful when calling ImFontGlyphRangesBuilder_BuildRanges()
+pub const vector_Destruct = ImVector_Destruct;                                                 // Destruct an ImVector<> (of any type). Important: Frees the vector memory but does not call destructors on contained objects (if they have them)
 pub const getKeyIndex = ImGui_GetKeyIndex;
 
 //-----------------------------------------------------------------------------
@@ -2539,10 +2744,12 @@ extern fn ImGui_IsWindowCollapsed() bool;
 extern fn ImGui_IsWindowFocused(flags: FocusedFlags) bool;
 extern fn ImGui_IsWindowHovered(flags: HoveredFlags) bool;
 extern fn ImGui_GetWindowDrawList() ?*DrawList;
+extern fn ImGui_GetWindowDpiScale() f32;
 extern fn ImGui_GetWindowPos() Vec2;
 extern fn ImGui_GetWindowSize() Vec2;
 extern fn ImGui_GetWindowWidth() f32;
 extern fn ImGui_GetWindowHeight() f32;
+extern fn ImGui_GetWindowViewport() ?*Viewport;
 extern fn ImGui_SetNextWindowPos(pos: Vec2, cond: Cond) void;
 extern fn ImGui_SetNextWindowPosEx(pos: Vec2, cond: Cond, pivot: Vec2) void;
 extern fn ImGui_SetNextWindowSize(size: Vec2, cond: Cond) void;
@@ -2552,6 +2759,7 @@ extern fn ImGui_SetNextWindowCollapsed(collapsed: bool, cond: Cond) void;
 extern fn ImGui_SetNextWindowFocus() void;
 extern fn ImGui_SetNextWindowScroll(scroll: Vec2) void;
 extern fn ImGui_SetNextWindowBgAlpha(alpha: f32) void;
+extern fn ImGui_SetNextWindowViewport(viewport_id: ID) void;
 extern fn ImGui_SetWindowPos(pos: Vec2, cond: Cond) void;
 extern fn ImGui_SetWindowSize(size: Vec2, cond: Cond) void;
 extern fn ImGui_SetWindowCollapsed(collapsed: bool, cond: Cond) void;
@@ -2602,6 +2810,7 @@ extern fn ImGui_GetColorU32(idx: Col) U32;
 extern fn ImGui_GetColorU32Ex(idx: Col, alpha_mul: f32) U32;
 extern fn ImGui_GetColorU32ImVec4(col: Vec4) U32;
 extern fn ImGui_GetColorU32ImU32(col: U32) U32;
+extern fn ImGui_GetColorU32ImU32Ex(col: U32, alpha_mul: f32) U32;
 extern fn ImGui_GetStyleColorVec4(idx: Col) *const Vec4;
 extern fn ImGui_GetCursorScreenPos() Vec2;
 extern fn ImGui_SetCursorScreenPos(pos: Vec2) void;
@@ -2639,18 +2848,23 @@ extern fn ImGui_GetIDStr(str_id_begin: ?[*:0]const u8, str_id_end: ?[*:0]const u
 extern fn ImGui_GetIDPtr(ptr_id: ?*anyopaque) ID;
 extern fn ImGui_TextUnformatted(text: ?[*:0]const u8) void;
 extern fn ImGui_TextUnformattedEx(text: ?[*:0]const u8, text_end: ?[*:0]const u8) void;
-extern fn ImGui_Text(fmt: ?[*:0]const u8, ...) void;
-extern fn ImGui_TextV(fmt: ?[*:0]const u8, args: c.va_list) void;
-extern fn ImGui_TextColored(col: Vec4, fmt: ?[*:0]const u8, ...) void;
-extern fn ImGui_TextColoredV(col: Vec4, fmt: ?[*:0]const u8, args: c.va_list) void;
-extern fn ImGui_TextDisabled(fmt: ?[*:0]const u8, ...) void;
-extern fn ImGui_TextDisabledV(fmt: ?[*:0]const u8, args: c.va_list) void;
-extern fn ImGui_TextWrapped(fmt: ?[*:0]const u8, ...) void;
-extern fn ImGui_TextWrappedV(fmt: ?[*:0]const u8, args: c.va_list) void;
-extern fn ImGui_LabelText(label: ?[*:0]const u8, fmt: ?[*:0]const u8, ...) void;
-extern fn ImGui_LabelTextV(label: ?[*:0]const u8, fmt: ?[*:0]const u8, args: c.va_list) void;
-extern fn ImGui_BulletText(fmt: ?[*:0]const u8, ...) void;
-extern fn ImGui_BulletTextV(fmt: ?[*:0]const u8, args: c.va_list) void;
+extern fn ImGui_Text(fmt: [*:0]const u8, ...) void;
+extern fn ImGui_TextV(fmt: [*:0]const u8, args: c.va_list) void;
+extern fn ImGui_TextColored(col: Vec4, fmt: [*:0]const u8, ...) void;
+extern fn ImGui_TextColoredUnformatted(col: Vec4, text: ?[*:0]const u8) void;
+extern fn ImGui_TextColoredV(col: Vec4, fmt: [*:0]const u8, args: c.va_list) void;
+extern fn ImGui_TextDisabled(fmt: [*:0]const u8, ...) void;
+extern fn ImGui_TextDisabledUnformatted(text: ?[*:0]const u8) void;
+extern fn ImGui_TextDisabledV(fmt: [*:0]const u8, args: c.va_list) void;
+extern fn ImGui_TextWrapped(fmt: [*:0]const u8, ...) void;
+extern fn ImGui_TextWrappedUnformatted(text: ?[*:0]const u8) void;
+extern fn ImGui_TextWrappedV(fmt: [*:0]const u8, args: c.va_list) void;
+extern fn ImGui_LabelText(label: ?[*:0]const u8, fmt: [*:0]const u8, ...) void;
+extern fn ImGui_LabelTextUnformatted(label: ?[*:0]const u8, text: ?[*:0]const u8) void;
+extern fn ImGui_LabelTextV(label: ?[*:0]const u8, fmt: [*:0]const u8, args: c.va_list) void;
+extern fn ImGui_BulletText(fmt: [*:0]const u8, ...) void;
+extern fn ImGui_BulletTextUnformatted(text: ?[*:0]const u8) void;
+extern fn ImGui_BulletTextV(fmt: [*:0]const u8, args: c.va_list) void;
 extern fn ImGui_SeparatorText(label: ?[*:0]const u8) void;
 extern fn ImGui_Button(label: ?[*:0]const u8) bool;
 extern fn ImGui_ButtonEx(label: ?[*:0]const u8, size: Vec2) bool;
@@ -2664,8 +2878,8 @@ extern fn ImGui_RadioButton(label: ?[*:0]const u8, active: bool) bool;
 extern fn ImGui_RadioButtonIntPtr(label: ?[*:0]const u8, v: ?*c_int, v_button: c_int) bool;
 extern fn ImGui_ProgressBar(fraction: f32, size_arg: Vec2, overlay: ?[*:0]const u8) void;
 extern fn ImGui_Bullet() void;
-extern fn ImGui_Image(user_texture_id: TextureID, size: Vec2) void;
-extern fn ImGui_ImageEx(user_texture_id: TextureID, size: Vec2, uv0: Vec2, uv1: Vec2, tint_col: Vec4, border_col: Vec4) void;
+extern fn ImGui_Image(user_texture_id: TextureID, image_size: Vec2) void;
+extern fn ImGui_ImageEx(user_texture_id: TextureID, image_size: Vec2, uv0: Vec2, uv1: Vec2, tint_col: Vec4, border_col: Vec4) void;
 extern fn ImGui_ImageButton(str_id: ?[*:0]const u8, user_texture_id: TextureID, image_size: Vec2) bool;
 extern fn ImGui_ImageButtonEx(str_id: ?[*:0]const u8, user_texture_id: TextureID, image_size: Vec2, uv0: Vec2, uv1: Vec2, bg_col: Vec4, tint_col: Vec4) bool;
 extern fn ImGui_BeginCombo(label: ?[*:0]const u8, preview_value: ?[*:0]const u8, flags: ComboFlags) bool;
@@ -2761,15 +2975,19 @@ extern fn ImGui_ColorButton(desc_id: ?[*:0]const u8, col: Vec4, flags: ColorEdit
 extern fn ImGui_ColorButtonEx(desc_id: ?[*:0]const u8, col: Vec4, flags: ColorEditFlags, size: Vec2) bool;
 extern fn ImGui_SetColorEditOptions(flags: ColorEditFlags) void;
 extern fn ImGui_TreeNode(label: ?[*:0]const u8) bool;
-extern fn ImGui_TreeNodeStr(str_id: ?[*:0]const u8, fmt: ?[*:0]const u8, ...) bool;
-extern fn ImGui_TreeNodePtr(ptr_id: ?*anyopaque, fmt: ?[*:0]const u8, ...) bool;
-extern fn ImGui_TreeNodeV(str_id: ?[*:0]const u8, fmt: ?[*:0]const u8, args: c.va_list) bool;
-extern fn ImGui_TreeNodeVPtr(ptr_id: ?*anyopaque, fmt: ?[*:0]const u8, args: c.va_list) bool;
+extern fn ImGui_TreeNodeStr(str_id: ?[*:0]const u8, fmt: [*:0]const u8, ...) bool;
+extern fn ImGui_TreeNodeStrUnformatted(str_id: ?[*:0]const u8, text: ?[*:0]const u8) bool;
+extern fn ImGui_TreeNodePtr(ptr_id: ?*anyopaque, fmt: [*:0]const u8, ...) bool;
+extern fn ImGui_TreeNodePtrUnformatted(ptr_id: ?*anyopaque, text: ?[*:0]const u8) bool;
+extern fn ImGui_TreeNodeV(str_id: ?[*:0]const u8, fmt: [*:0]const u8, args: c.va_list) bool;
+extern fn ImGui_TreeNodeVPtr(ptr_id: ?*anyopaque, fmt: [*:0]const u8, args: c.va_list) bool;
 extern fn ImGui_TreeNodeEx(label: ?[*:0]const u8, flags: TreeNodeFlags) bool;
-extern fn ImGui_TreeNodeExStr(str_id: ?[*:0]const u8, flags: TreeNodeFlags, fmt: ?[*:0]const u8, ...) bool;
-extern fn ImGui_TreeNodeExPtr(ptr_id: ?*anyopaque, flags: TreeNodeFlags, fmt: ?[*:0]const u8, ...) bool;
-extern fn ImGui_TreeNodeExV(str_id: ?[*:0]const u8, flags: TreeNodeFlags, fmt: ?[*:0]const u8, args: c.va_list) bool;
-extern fn ImGui_TreeNodeExVPtr(ptr_id: ?*anyopaque, flags: TreeNodeFlags, fmt: ?[*:0]const u8, args: c.va_list) bool;
+extern fn ImGui_TreeNodeExStr(str_id: ?[*:0]const u8, flags: TreeNodeFlags, fmt: [*:0]const u8, ...) bool;
+extern fn ImGui_TreeNodeExStrUnformatted(str_id: ?[*:0]const u8, flags: TreeNodeFlags, text: ?[*:0]const u8) bool;
+extern fn ImGui_TreeNodeExPtr(ptr_id: ?*anyopaque, flags: TreeNodeFlags, fmt: [*:0]const u8, ...) bool;
+extern fn ImGui_TreeNodeExPtrUnformatted(ptr_id: ?*anyopaque, flags: TreeNodeFlags, text: ?[*:0]const u8) bool;
+extern fn ImGui_TreeNodeExV(str_id: ?[*:0]const u8, flags: TreeNodeFlags, fmt: [*:0]const u8, args: c.va_list) bool;
+extern fn ImGui_TreeNodeExVPtr(ptr_id: ?*anyopaque, flags: TreeNodeFlags, fmt: [*:0]const u8, args: c.va_list) bool;
 extern fn ImGui_TreePush(str_id: ?[*:0]const u8) void;
 extern fn ImGui_TreePushPtr(ptr_id: ?*anyopaque) void;
 extern fn ImGui_TreePop() void;
@@ -2806,11 +3024,13 @@ extern fn ImGui_MenuItemEx(label: ?[*:0]const u8, shortcut: ?[*:0]const u8, sele
 extern fn ImGui_MenuItemBoolPtr(label: ?[*:0]const u8, shortcut: ?[*:0]const u8, p_selected: ?*bool, enabled: bool) bool;
 extern fn ImGui_BeginTooltip() bool;
 extern fn ImGui_EndTooltip() void;
-extern fn ImGui_SetTooltip(fmt: ?[*:0]const u8, ...) void;
-extern fn ImGui_SetTooltipV(fmt: ?[*:0]const u8, args: c.va_list) void;
+extern fn ImGui_SetTooltip(fmt: [*:0]const u8, ...) void;
+extern fn ImGui_SetTooltipUnformatted(text: ?[*:0]const u8) void;
+extern fn ImGui_SetTooltipV(fmt: [*:0]const u8, args: c.va_list) void;
 extern fn ImGui_BeginItemTooltip() bool;
-extern fn ImGui_SetItemTooltip(fmt: ?[*:0]const u8, ...) void;
-extern fn ImGui_SetItemTooltipV(fmt: ?[*:0]const u8, args: c.va_list) void;
+extern fn ImGui_SetItemTooltip(fmt: [*:0]const u8, ...) void;
+extern fn ImGui_SetItemTooltipUnformatted(text: ?[*:0]const u8) void;
+extern fn ImGui_SetItemTooltipV(fmt: [*:0]const u8, args: c.va_list) void;
 extern fn ImGui_BeginPopup(str_id: ?[*:0]const u8, flags: WindowFlags) bool;
 extern fn ImGui_BeginPopupModal(name: ?[*:0]const u8, p_open: ?*bool, flags: WindowFlags) bool;
 extern fn ImGui_EndPopup() void;
@@ -2861,13 +3081,22 @@ extern fn ImGui_BeginTabItem(label: ?[*:0]const u8, p_open: ?*bool, flags: TabIt
 extern fn ImGui_EndTabItem() void;
 extern fn ImGui_TabItemButton(label: ?[*:0]const u8, flags: TabItemFlags) bool;
 extern fn ImGui_SetTabItemClosed(tab_or_docked_window_label: ?[*:0]const u8) void;
+extern fn ImGui_DockSpace(id: ID) ID;
+extern fn ImGui_DockSpaceEx(id: ID, size: Vec2, flags: DockNodeFlags, window_class: ?*const WindowClass) ID;
+extern fn ImGui_DockSpaceOverViewport() ID;
+extern fn ImGui_DockSpaceOverViewportEx(viewport: ?*const Viewport, flags: DockNodeFlags, window_class: ?*const WindowClass) ID;
+extern fn ImGui_SetNextWindowDockID(dock_id: ID, cond: Cond) void;
+extern fn ImGui_SetNextWindowClass(window_class: ?*const WindowClass) void;
+extern fn ImGui_GetWindowDockID() ID;
+extern fn ImGui_IsWindowDocked() bool;
 extern fn ImGui_LogToTTY(auto_open_depth: c_int) void;
 extern fn ImGui_LogToFile(auto_open_depth: c_int, filename: ?[*:0]const u8) void;
 extern fn ImGui_LogToClipboard(auto_open_depth: c_int) void;
 extern fn ImGui_LogFinish() void;
 extern fn ImGui_LogButtons() void;
-extern fn ImGui_LogText(fmt: ?[*:0]const u8, ...) void;
-extern fn ImGui_LogTextV(fmt: ?[*:0]const u8, args: c.va_list) void;
+extern fn ImGui_LogText(fmt: [*:0]const u8, ...) void;
+extern fn ImGui_LogTextUnformatted(text: ?[*:0]const u8) void;
+extern fn ImGui_LogTextV(fmt: [*:0]const u8, args: c.va_list) void;
 extern fn ImGui_BeginDragDropSource(flags: DragDropFlags) bool;
 extern fn ImGui_SetDragDropPayload(type: ?[*:0]const u8, data: ?*anyopaque, sz: usize, cond: Cond) bool;
 extern fn ImGui_EndDragDropSource() void;
@@ -2904,6 +3133,8 @@ extern fn ImGui_GetItemRectSize() Vec2;
 extern fn ImGui_GetMainViewport() ?*Viewport;
 extern fn ImGui_GetBackgroundDrawList() ?*DrawList;
 extern fn ImGui_GetForegroundDrawList() ?*DrawList;
+extern fn ImGui_GetBackgroundDrawListImGuiViewportPtr(viewport: ?*Viewport) ?*DrawList;
+extern fn ImGui_GetForegroundDrawListImGuiViewportPtr(viewport: ?*Viewport) ?*DrawList;
 extern fn ImGui_IsRectVisibleBySize(size: Vec2) bool;
 extern fn ImGui_IsRectVisible(rect_min: Vec2, rect_max: Vec2) bool;
 extern fn ImGui_GetTime() f64;
@@ -2952,11 +3183,20 @@ extern fn ImGui_LoadIniSettingsFromMemory(ini_data: ?[*:0]const u8, ini_size: us
 extern fn ImGui_SaveIniSettingsToDisk(ini_filename: ?[*:0]const u8) void;
 extern fn ImGui_SaveIniSettingsToMemory(out_ini_size: ?*usize) ?[*:0]const u8;
 extern fn ImGui_DebugTextEncoding(text: ?[*:0]const u8) void;
+extern fn ImGui_DebugFlashStyleColor(idx: Col) void;
+extern fn ImGui_DebugStartItemPicker() void;
 extern fn ImGui_DebugCheckVersionAndDataLayout(version_str: ?[*:0]const u8, sz_io: usize, sz_style: usize, sz_vec2: usize, sz_vec4: usize, sz_drawvert: usize, sz_drawidx: usize) bool;
 extern fn ImGui_SetAllocatorFunctions(alloc_func: MemAllocFunc, free_func: MemFreeFunc, user_data: ?*anyopaque) void;
 extern fn ImGui_GetAllocatorFunctions(p_alloc_func: ?*MemAllocFunc, p_free_func: ?*MemFreeFunc, p_user_data: ?*?*anyopaque) void;
 extern fn ImGui_MemAlloc(size: usize) ?*anyopaque;
 extern fn ImGui_MemFree(ptr: ?*anyopaque) void;
+extern fn ImGui_GetPlatformIO() *PlatformIO;
+extern fn ImGui_UpdatePlatformWindows() void;
+extern fn ImGui_RenderPlatformWindowsDefault() void;
+extern fn ImGui_RenderPlatformWindowsDefaultEx(platform_render_arg: ?*anyopaque, renderer_render_arg: ?*anyopaque) void;
+extern fn ImGui_DestroyPlatformWindows() void;
+extern fn ImGui_FindViewportByID(id: ID) ?*Viewport;
+extern fn ImGui_FindViewportByPlatformHandle(platform_handle: ?*anyopaque) ?*Viewport;
 extern fn ImVector_Construct(vector: ?*anyopaque) void;
 extern fn ImVector_Destruct(vector: ?*anyopaque) void;
 extern fn ImGuiStyle_ScaleAllSizes(self: *Style, scale_factor: f32) void;
@@ -2966,6 +3206,7 @@ extern fn ImGuiIO_AddMousePosEvent(self: *IO, x: f32, y: f32) void;
 extern fn ImGuiIO_AddMouseButtonEvent(self: *IO, button: c_int, down: bool) void;
 extern fn ImGuiIO_AddMouseWheelEvent(self: *IO, wheel_x: f32, wheel_y: f32) void;
 extern fn ImGuiIO_AddMouseSourceEvent(self: *IO, source: MouseSource) void;
+extern fn ImGuiIO_AddMouseViewportEvent(self: *IO, id: ID) void;
 extern fn ImGuiIO_AddFocusEvent(self: *IO, focused: bool) void;
 extern fn ImGuiIO_AddInputCharacter(self: *IO, c: c_uint) void;
 extern fn ImGuiIO_AddInputCharacterUTF16(self: *IO, c: Wchar16) void;
@@ -2999,8 +3240,8 @@ extern fn ImGuiTextBuffer_clear(self: *TextBuffer) void;
 extern fn ImGuiTextBuffer_reserve(self: *TextBuffer, capacity: c_int) void;
 extern fn ImGuiTextBuffer_c_str(self: *const TextBuffer) ?[*:0]const u8;
 extern fn ImGuiTextBuffer_append(self: *TextBuffer, str: ?[*:0]const u8, str_end: ?[*:0]const u8) void;
-extern fn ImGuiTextBuffer_appendf(self: *TextBuffer, fmt: ?[*:0]const u8, ...) void;
-extern fn ImGuiTextBuffer_appendfv(self: *TextBuffer, fmt: ?[*:0]const u8, args: c.va_list) void;
+extern fn ImGuiTextBuffer_appendf(self: *TextBuffer, fmt: [*:0]const u8, ...) void;
+extern fn ImGuiTextBuffer_appendfv(self: *TextBuffer, fmt: [*:0]const u8, args: c.va_list) void;
 extern fn ImGuiStorage_Clear(self: *Storage) void;
 extern fn ImGuiStorage_GetInt(self: *const Storage, key: ID, default_val: c_int) c_int;
 extern fn ImGuiStorage_SetInt(self: *Storage, key: ID, val: c_int) void;

@@ -16,8 +16,8 @@
             .hash = "12208c57b72e3fb5c8d5d3e667e2e21ca1d9e2b6fc3f84182b320f63933f591823da",
         },
         .imgui = .{
-            .url = "https://github.com/ocornut/imgui/archive/refs/tags/v1.90.tar.gz",
-            .hash = "12206ca5fe2c3d35964b3a1cd30c4ff4e1050852f0062db0dda122513dc9477d5115",
+            .url = "https://github.com/ocornut/imgui/archive/refs/tags/v1.90.4-docking.tar.gz",
+            .hash = "122059777064e1e404a7ecc87a5f27d421871ce7dff0f4d5a9068f4156b359ef465f",
         },
     },
 }
