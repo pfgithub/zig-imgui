@@ -5,6 +5,8 @@ const gpu = core.gpu;
 
 var allocator: std.mem.Allocator = undefined;
 
+pub const DrawCallback_ResetRenderState: imgui.DrawCallback = @ptrFromInt(@as(usize, @bitCast(@as(isize, -8))));
+
 // ------------------------------------------------------------------------------------------------
 // Public API
 // ------------------------------------------------------------------------------------------------
@@ -512,8 +514,11 @@ const BackendRendererData = struct {
                 for (0..@intCast(cmd_list.cmd_buffer.size)) |cmd_i| {
                     const cmd = &cmd_list.cmd_buffer.data[cmd_i];
                     if (cmd.user_callback != null) {
-                        // TODO - imgui.DrawCallback_ResetRenderState not generating yet
-                        cmd.user_callback.?(cmd_list, cmd);
+                        if (cmd.user_callback == DrawCallback_ResetRenderState) {
+                            bd.setupRenderState(draw_data, pass_encoder, fr);
+                        } else {
+                            cmd.user_callback.?(cmd_list, cmd);
+                        }
                     } else {
                         // Texture
                         const tex_id = cmd.getTexID();
