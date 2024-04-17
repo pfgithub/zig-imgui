@@ -173,9 +173,6 @@ const BackendPlatformData = struct {
                 io.addMouseWheelEvent(data.xoffset, data.yoffset);
                 return true;
             },
-            .joystick_connected => {},
-            .joystick_disconnected => {},
-            .framebuffer_resize => {},
             .focus_gained => {
                 io.addFocusEvent(true);
                 return true;
@@ -184,8 +181,8 @@ const BackendPlatformData = struct {
                 io.addFocusEvent(false);
                 return true;
             },
-            .close => {},
-
+            
+            else => {},
             // TODO - mouse enter/leave?
         }
 
