@@ -502,7 +502,7 @@ const BackendRendererData = struct {
                 return; // render failed
             }
             if(ib_write_size > fr.index_buffer_size) {
-                log.err("Could not write to vertex buffer:\n- Write size: {d}\n-  CPU Buffer size: {d}\n- GPU Buffer size: {d}", .{ib_write_size, fr.indices.?.len, fr.index_buffer_size});
+                log.err("Could not write to index buffer:\n- Write size: {d}\n-  CPU Buffer size: {d}\n- GPU Buffer size: {d}", .{ib_write_size, fr.indices.?.len, fr.index_buffer_size});
                 return; // render failed
             }
             if (vb_write_size > 0)
