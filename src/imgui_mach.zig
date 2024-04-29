@@ -1,7 +1,7 @@
 const std = @import("std");
 const imgui = @import("imgui.zig");
 const core = @import("mach").core;
-const gpu = core.gpu;
+const gpu = @import("mach").gpu;
 
 export fn zig_assert(cond: bool) void {
     std.debug.assert(cond);

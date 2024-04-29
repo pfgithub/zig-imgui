@@ -3,7 +3,7 @@ const build_options = @import("build-options");
 const imgui = @import("imgui");
 const imgui_mach = imgui.backends.mach;
 const core = @import("mach").core;
-const gpu = core.gpu;
+const gpu = @import("mach").gpu;
 
 pub const App = @This();
 

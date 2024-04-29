@@ -47,12 +47,12 @@ pub fn build(b: *std.Build) !void {
 
     if (use_freetype) {
         try flags.append("-DIMGUI_ENABLE_FREETYPE");
-        try files.append("imgui/misc/freetype/imgui_freetype.cpp");
+        try files.append(imgui_dep.path("misc/freetype/imgui_freetype.cpp").getPath(b));
 
-        lib.linkLibrary(b.dependency("freetype", .{
+        lib.linkLibrary((b.lazyDependency("freetype", .{
             .target = target,
             .optimize = optimize,
-        }).artifact("freetype"));
+        }) orelse return).artifact("freetype"));
     }
 
     // oops!
