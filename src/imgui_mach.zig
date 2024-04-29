@@ -2,7 +2,13 @@ const std = @import("std");
 const imgui = @import("imgui.zig");
 const core = @import("mach").core;
 const gpu = core.gpu;
-const log = std.log.scoped(.imgui_mach);
+
+export fn zig_assert(cond: bool) void {
+    std.debug.assert(cond);
+}
+export fn zig_debug_break() void {
+    std.debug.dumpCurrentStackTrace(null);
+}
 
 var allocator: std.mem.Allocator = undefined;
 
@@ -88,6 +94,9 @@ const BackendPlatformData = struct {
         io.backend_platform_name = "imgui_mach";
         io.backend_flags |= imgui.BackendFlags_HasMouseCursors;
         //io.backend_flags |= imgui.BackendFlags_HasSetMousePos;
+
+        // debug break is redefined to dumpCurrentStackTrace()
+        io.config_debug_is_debugger_present = true;
 
         var bd = BackendPlatformData{};
         bd.setDisplaySizeAndScale();
@@ -182,7 +191,7 @@ const BackendPlatformData = struct {
                 io.addFocusEvent(false);
                 return true;
             },
-            
+
             else => {},
             // TODO - mouse enter/leave?
         }
@@ -492,19 +501,6 @@ const BackendRendererData = struct {
             }
             vb_write_size = alignUp(vb_write_size, 4);
             ib_write_size = alignUp(ib_write_size, 4);
-            // a crash occured because writeBuffer tried to write larger than the size of the buffer
-            // error: gpu: validation error:
-            // Write range (bufferOffset: 0, size: 339040) does not fit in [Buffer "Dear ImGui Vertex buffer"] size (339000).
-            // - While calling [Queue].WriteBuffer([Buffer "Dear ImGui Vertex buffer"], (0 bytes), data, (339040 bytes))
-            // ? why does vertex_buffer_size & index_buffer_size get set to the true value + 5000 ?
-            if(vb_write_size > fr.vertex_buffer_size) {
-                log.err("Could not write to vertex buffer:\n- Write size: {d}\n-  CPU Buffer size: {d}\n- GPU Buffer size: {d}", .{vb_write_size, fr.vertices.?.len, fr.vertex_buffer_size});
-                return; // render failed
-            }
-            if(ib_write_size > fr.index_buffer_size) {
-                log.err("Could not write to index buffer:\n- Write size: {d}\n-  CPU Buffer size: {d}\n- GPU Buffer size: {d}", .{ib_write_size, fr.indices.?.len, fr.index_buffer_size});
-                return; // render failed
-            }
             if (vb_write_size > 0)
                 bd.queue.writeBuffer(fr.vertex_buffer.?, 0, fr.vertices.?[0..vb_write_size]);
             if (ib_write_size > 0)

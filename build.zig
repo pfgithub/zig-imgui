@@ -57,7 +57,9 @@ pub fn build(b: *std.Build) !void {
 
     // oops!
     try flags.append("-fno-sanitize=undefined");
+    try flags.append("-include" ++ "imconfig_override.h");
 
+    lib.addIncludePath(.{ .path = "src" });
     lib.addIncludePath(imgui_dep.path("."));
 
     for (files.items) |file| {
