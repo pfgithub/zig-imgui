@@ -1,3 +1,9 @@
-ImGui bindings for Zig
+imgui bindings for mach
 
-- Currently only backend is for mach, but backends for other APIs may come later
+regenerating:
+
+```
+python3
+pip3 install ply 
+zig build generate
+```

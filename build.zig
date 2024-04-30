@@ -9,10 +9,10 @@ pub fn build(b: *std.Build) !void {
 
     const use_freetype = b.option(bool, "use_freetype", "Use Freetype") orelse false;
 
-    const mach_dep = b.dependency("mach", .{
+    const mach_dep = b.lazyDependency("mach", .{
         .target = target,
         .optimize = optimize,
-    });
+    }) orelse return;
 
     const module = b.addModule("zig-imgui", .{
         .root_source_file = .{ .path = "src/imgui.zig" },
@@ -87,6 +87,13 @@ pub fn build(b: *std.Build) !void {
     run_step.dependOn(&app.run.step);
 
     // Generator
+    const dear_bindings = b.lazyDependency("dear_bindings", .{}) orelse return;
+    const generate_c = b.addSystemCommand(&.{"python3"});
+    generate_c.addFileArg(dear_bindings.path("dear_bindings.py"));
+    generate_c.addArg("-o");
+    generate_c.addArg("src/cimgui");
+    generate_c.addFileArg(imgui_dep.path("imgui.h"));
+
     const generator_exe = b.addExecutable(.{
         .name = "mach-imgui-generator",
         .root_source_file = .{ .path = "src/generate.zig" },
@@ -96,6 +103,11 @@ pub fn build(b: *std.Build) !void {
 
     b.installArtifact(generator_exe);
 
+    const generate_run = b.addRunArtifact(generator_exe);
+    generate_run.addArg("src/cimgui.json");
+    generate_run.addArg("src/imgui.zig");
+    generate_run.step.dependOn(&generate_c.step);
+
     const generate_step = b.step("generate", "Generate the bindings");
-    generate_step.dependOn(&b.addRunArtifact(generator_exe).step);
+    generate_step.dependOn(&generate_run.step);
 }

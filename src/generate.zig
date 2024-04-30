@@ -2,6 +2,11 @@ const std = @import("std");
 
 var allocator: std.mem.Allocator = undefined;
 
+var any_writer: ?std.io.AnyWriter = null;
+fn writer() std.io.AnyWriter {
+    return any_writer.?;
+}
+
 const hash = std.hash.Fnv1a_32.hash;
 
 // common defines - TODO make command line option
@@ -132,7 +137,7 @@ fn writeByte(ch: u8) void {
     if (aligned_content) |*ac| {
         ac.writer(allocator).writeByte(ch) catch unreachable;
     } else {
-        std.io.getStdOut().writer().writeByte(ch) catch unreachable;
+        writer().writeByte(ch) catch unreachable;
     }
 }
 
@@ -140,7 +145,7 @@ fn write(str: []const u8) void {
     if (aligned_content) |*ac| {
         ac.writer(allocator).writeAll(str) catch unreachable;
     } else {
-        std.io.getStdOut().writer().writeAll(str) catch unreachable;
+        writer().writeAll(str) catch unreachable;
     }
 }
 
@@ -148,7 +153,7 @@ fn print(comptime format: []const u8, args: anytype) void {
     if (aligned_content) |*ac| {
         std.fmt.format(ac.writer(allocator), format, args) catch unreachable;
     } else {
-        std.fmt.format(std.io.getStdOut().writer(), format, args) catch unreachable;
+        std.fmt.format(writer(), format, args) catch unreachable;
     }
 }
 
@@ -623,6 +628,9 @@ fn emit(x: std.json.Value) void {
 }
 
 pub fn main() !void {
+    std.log.info("running generator.", .{});
+    defer std.log.info("done!", .{});
+
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     defer _ = gpa.deinit();
     allocator = gpa.allocator();
@@ -652,14 +660,30 @@ pub fn main() !void {
     defer known_structs.deinit(allocator);
     defer aligned_fields.deinit(allocator);
 
-    var file = try std.fs.cwd().openFile("cimgui.json", .{});
-    defer file.close();
+    const args_alloc = try std.process.argsAlloc(allocator);
+    defer std.process.argsFree(allocator, args_alloc);
+    if(args_alloc.len != 3) return error.BadArgs;
+    const src_arg = args_alloc[1];
+    const dst_arg = args_alloc[2];
 
-    const file_data = try file.readToEndAlloc(allocator, std.math.maxInt(usize));
+    var out_writer = std.ArrayList(u8).init(allocator);
+    defer out_writer.deinit();
+    any_writer = out_writer.writer().any();
+
+    const file_data = try std.fs.cwd().readFileAlloc(allocator, src_arg, std.math.maxInt(usize));
     defer allocator.free(file_data);
 
+    std.log.info("parsing...", .{});
     var valueTree = try std.json.parseFromSlice(std.json.Value, allocator, file_data, .{});
     defer valueTree.deinit();
+    std.log.info("-> done", .{});
 
+    std.log.info("generating...", .{});
     emit(valueTree.value);
+    std.log.info("-> done", .{});
+
+    try std.fs.cwd().writeFile2(.{
+        .sub_path = dst_arg,
+        .data = out_writer.items,
+    });
 }

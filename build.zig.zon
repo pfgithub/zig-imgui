@@ -7,6 +7,18 @@
     .name = "mach-imgui",
     .version = "0.1.0",
     .dependencies = .{
+        .imgui = .{
+            .url = "https://github.com/ocornut/imgui/archive/refs/tags/v1.90.4-docking.tar.gz",
+            .hash = "122059777064e1e404a7ecc87a5f27d421871ce7dff0f4d5a9068f4156b359ef465f",
+        },
+        // these are all lazy because they are dev dependencies:
+        // - the user of the library provides mach & freetype themselves
+        // - dear_bindings is for development (it has python scripts so it can't be run during build)
+        .dear_bindings = .{
+            .url = "https://github.com/dearimgui/dear_bindings/archive/f7f1fb2f3ca053f51f67f1e6ff5b859d8bea89de.tar.gz",
+            .hash = "1220759c2ae5638b2f6cc06466e9654cf4bb3feec1f732a61bd9693bc2ebcb05176a",
+            .lazy = true,
+        },
         .mach = .{
             .url = "https://pkg.machengine.org/mach/bffc66800584123e2844c4bc4b577940806f9088.tar.gz",
             .hash = "122030ee1528db53d58385fad45929092308955e141b95185b375ea8cf616de6b141",
@@ -14,10 +26,7 @@
         .freetype = .{
             .url = "https://pkg.machengine.org/freetype/398638fd1cb723e478658ea371fe3be1a4dce0ae.tar.gz",
             .hash = "12208c57b72e3fb5c8d5d3e667e2e21ca1d9e2b6fc3f84182b320f63933f591823da",
-        },
-        .imgui = .{
-            .url = "https://github.com/ocornut/imgui/archive/refs/tags/v1.90.4-docking.tar.gz",
-            .hash = "122059777064e1e404a7ecc87a5f27d421871ce7dff0f4d5a9068f4156b359ef465f",
+            .lazy = true,
         },
     },
 }
