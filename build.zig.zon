@@ -15,6 +15,9 @@
         // - the user of the library provides mach & freetype themselves
         // - dear_bindings is for development (it has python scripts so it can't be run during build)
         .dear_bindings = .{
+            // imgui_internal bindings too but it doesn't work great:
+            // .url = "https://github.com/LostPolygon/dear_bindings/archive/9512f621d84525de3c17e94da7813fc4091d066a.tar.gz",
+            // .hash = "122011b418d51778a8a18a621122ee6b63f3e960cccddb0b79f248ce7980a5b2cffe",
             .url = "https://github.com/dearimgui/dear_bindings/archive/f7f1fb2f3ca053f51f67f1e6ff5b859d8bea89de.tar.gz",
             .hash = "1220759c2ae5638b2f6cc06466e9654cf4bb3feec1f732a61bd9693bc2ebcb05176a",
             .lazy = true,

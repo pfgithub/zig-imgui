@@ -3210,28 +3210,18 @@ pub const text = ImGui_Text;
 pub const textV = ImGui_TextV;
 /// shortcut for PushStyleColor(ImGuiCol_Text, col); Text(fmt, ...); PopStyleColor();
 pub const textColored = ImGui_TextColored;
-/// shortcut for PushStyleColor(ImGuiCol_Text, col); Text(fmt, ...); PopStyleColor();
-pub const textColoredUnformatted = ImGui_TextColoredUnformatted;
 pub const textColoredV = ImGui_TextColoredV;
 /// shortcut for PushStyleColor(ImGuiCol_Text, style.Colors[ImGuiCol_TextDisabled]); Text(fmt, ...); PopStyleColor();
 pub const textDisabled = ImGui_TextDisabled;
-/// shortcut for PushStyleColor(ImGuiCol_Text, style.Colors[ImGuiCol_TextDisabled]); Text(fmt, ...); PopStyleColor();
-pub const textDisabledUnformatted = ImGui_TextDisabledUnformatted;
 pub const textDisabledV = ImGui_TextDisabledV;
 /// shortcut for PushTextWrapPos(0.0f); Text(fmt, ...); PopTextWrapPos();. Note that this won't work on an auto-resizing window if there's no other widgets to extend the window width, yoy may need to set a size using SetNextWindowSize().
 pub const textWrapped = ImGui_TextWrapped;
-/// shortcut for PushTextWrapPos(0.0f); Text(fmt, ...); PopTextWrapPos();. Note that this won't work on an auto-resizing window if there's no other widgets to extend the window width, yoy may need to set a size using SetNextWindowSize().
-pub const textWrappedUnformatted = ImGui_TextWrappedUnformatted;
 pub const textWrappedV = ImGui_TextWrappedV;
 /// display text+label aligned the same way as value+label widgets
 pub const labelText = ImGui_LabelText;
-/// display text+label aligned the same way as value+label widgets
-pub const labelTextUnformatted = ImGui_LabelTextUnformatted;
 pub const labelTextV = ImGui_LabelTextV;
 /// shortcut for Bullet()+Text()
 pub const bulletText = ImGui_BulletText;
-/// shortcut for Bullet()+Text()
-pub const bulletTextUnformatted = ImGui_BulletTextUnformatted;
 pub const bulletTextV = ImGui_BulletTextV;
 /// currently: formatted text with an horizontal line
 pub const separatorText = ImGui_SeparatorText;
@@ -3440,19 +3430,13 @@ pub const setColorEditOptions = ImGui_SetColorEditOptions;
 pub const treeNode = ImGui_TreeNode;
 /// helper variation to easily decorelate the id from the displayed string. Read the FAQ about why and how to use ID. to align arbitrary text at the same level as a TreeNode() you can use Bullet().
 pub const treeNodeStr = ImGui_TreeNodeStr;
-/// helper variation to easily decorelate the id from the displayed string. Read the FAQ about why and how to use ID. to align arbitrary text at the same level as a TreeNode() you can use Bullet().
-pub const treeNodeStrUnformatted = ImGui_TreeNodeStrUnformatted;
 /// "
 pub const treeNodePtr = ImGui_TreeNodePtr;
-/// "
-pub const treeNodePtrUnformatted = ImGui_TreeNodePtrUnformatted;
 pub const treeNodeV = ImGui_TreeNodeV;
 pub const treeNodeVPtr = ImGui_TreeNodeVPtr;
 pub const treeNodeEx = ImGui_TreeNodeEx;
 pub const treeNodeExStr = ImGui_TreeNodeExStr;
-pub const treeNodeExStrUnformatted = ImGui_TreeNodeExStrUnformatted;
 pub const treeNodeExPtr = ImGui_TreeNodeExPtr;
-pub const treeNodeExPtrUnformatted = ImGui_TreeNodeExPtrUnformatted;
 pub const treeNodeExV = ImGui_TreeNodeExV;
 pub const treeNodeExVPtr = ImGui_TreeNodeExVPtr;
 /// ~ Indent()+PushID(). Already called by TreeNode() when returning true, but you can call TreePush/TreePop yourself if desired.
@@ -3542,8 +3526,6 @@ pub const beginTooltip = ImGui_BeginTooltip;
 pub const endTooltip = ImGui_EndTooltip;
 /// set a text-only tooltip. Often used after a ImGui::IsItemHovered() check. Override any previous call to SetTooltip().
 pub const setTooltip = ImGui_SetTooltip;
-/// set a text-only tooltip. Often used after a ImGui::IsItemHovered() check. Override any previous call to SetTooltip().
-pub const setTooltipUnformatted = ImGui_SetTooltipUnformatted;
 pub const setTooltipV = ImGui_SetTooltipV;
 // Tooltips: helpers for showing a tooltip when hovering an item
 // - BeginItemTooltip() is a shortcut for the 'if (IsItemHovered(ImGuiHoveredFlags_ForTooltip) && BeginTooltip())' idiom.
@@ -3553,8 +3535,6 @@ pub const setTooltipV = ImGui_SetTooltipV;
 pub const beginItemTooltip = ImGui_BeginItemTooltip;
 /// set a text-only tooltip if preceeding item was hovered. override any previous call to SetTooltip().
 pub const setItemTooltip = ImGui_SetItemTooltip;
-/// set a text-only tooltip if preceeding item was hovered. override any previous call to SetTooltip().
-pub const setItemTooltipUnformatted = ImGui_SetItemTooltipUnformatted;
 pub const setItemTooltipV = ImGui_SetItemTooltipV;
 // Popups, Modals
 //  - They block normal mouse hovering detection (and therefore most mouse interactions) behind them.
@@ -3758,8 +3738,6 @@ pub const logFinish = ImGui_LogFinish;
 pub const logButtons = ImGui_LogButtons;
 /// pass text data straight to log (without being displayed)
 pub const logText = ImGui_LogText;
-/// pass text data straight to log (without being displayed)
-pub const logTextUnformatted = ImGui_LogTextUnformatted;
 pub const logTextV = ImGui_LogTextV;
 // Drag and Drop
 // - On source items, call BeginDragDropSource(), if it returns true also call SetDragDropPayload() + EndDragDropSource().
@@ -4142,19 +4120,14 @@ extern fn ImGui_TextUnformattedEx(text: ?[*:0]const u8, text_end: ?[*:0]const u8
 extern fn ImGui_Text(fmt: [*:0]const u8, ...) void;
 extern fn ImGui_TextV(fmt: [*:0]const u8, args: c.va_list) void;
 extern fn ImGui_TextColored(col: Vec4, fmt: [*:0]const u8, ...) void;
-extern fn ImGui_TextColoredUnformatted(col: Vec4, text: ?[*:0]const u8) void;
 extern fn ImGui_TextColoredV(col: Vec4, fmt: [*:0]const u8, args: c.va_list) void;
 extern fn ImGui_TextDisabled(fmt: [*:0]const u8, ...) void;
-extern fn ImGui_TextDisabledUnformatted(text: ?[*:0]const u8) void;
 extern fn ImGui_TextDisabledV(fmt: [*:0]const u8, args: c.va_list) void;
 extern fn ImGui_TextWrapped(fmt: [*:0]const u8, ...) void;
-extern fn ImGui_TextWrappedUnformatted(text: ?[*:0]const u8) void;
 extern fn ImGui_TextWrappedV(fmt: [*:0]const u8, args: c.va_list) void;
 extern fn ImGui_LabelText(label: ?[*:0]const u8, fmt: [*:0]const u8, ...) void;
-extern fn ImGui_LabelTextUnformatted(label: ?[*:0]const u8, text: ?[*:0]const u8) void;
 extern fn ImGui_LabelTextV(label: ?[*:0]const u8, fmt: [*:0]const u8, args: c.va_list) void;
 extern fn ImGui_BulletText(fmt: [*:0]const u8, ...) void;
-extern fn ImGui_BulletTextUnformatted(text: ?[*:0]const u8) void;
 extern fn ImGui_BulletTextV(fmt: [*:0]const u8, args: c.va_list) void;
 extern fn ImGui_SeparatorText(label: ?[*:0]const u8) void;
 extern fn ImGui_Button(label: ?[*:0]const u8) bool;
@@ -4267,16 +4240,12 @@ extern fn ImGui_ColorButtonEx(desc_id: ?[*:0]const u8, col: Vec4, flags: ColorEd
 extern fn ImGui_SetColorEditOptions(flags: ColorEditFlags) void;
 extern fn ImGui_TreeNode(label: ?[*:0]const u8) bool;
 extern fn ImGui_TreeNodeStr(str_id: ?[*:0]const u8, fmt: [*:0]const u8, ...) bool;
-extern fn ImGui_TreeNodeStrUnformatted(str_id: ?[*:0]const u8, text: ?[*:0]const u8) bool;
 extern fn ImGui_TreeNodePtr(ptr_id: ?*anyopaque, fmt: [*:0]const u8, ...) bool;
-extern fn ImGui_TreeNodePtrUnformatted(ptr_id: ?*anyopaque, text: ?[*:0]const u8) bool;
 extern fn ImGui_TreeNodeV(str_id: ?[*:0]const u8, fmt: [*:0]const u8, args: c.va_list) bool;
 extern fn ImGui_TreeNodeVPtr(ptr_id: ?*anyopaque, fmt: [*:0]const u8, args: c.va_list) bool;
 extern fn ImGui_TreeNodeEx(label: ?[*:0]const u8, flags: TreeNodeFlags) bool;
 extern fn ImGui_TreeNodeExStr(str_id: ?[*:0]const u8, flags: TreeNodeFlags, fmt: [*:0]const u8, ...) bool;
-extern fn ImGui_TreeNodeExStrUnformatted(str_id: ?[*:0]const u8, flags: TreeNodeFlags, text: ?[*:0]const u8) bool;
 extern fn ImGui_TreeNodeExPtr(ptr_id: ?*anyopaque, flags: TreeNodeFlags, fmt: [*:0]const u8, ...) bool;
-extern fn ImGui_TreeNodeExPtrUnformatted(ptr_id: ?*anyopaque, flags: TreeNodeFlags, text: ?[*:0]const u8) bool;
 extern fn ImGui_TreeNodeExV(str_id: ?[*:0]const u8, flags: TreeNodeFlags, fmt: [*:0]const u8, args: c.va_list) bool;
 extern fn ImGui_TreeNodeExVPtr(ptr_id: ?*anyopaque, flags: TreeNodeFlags, fmt: [*:0]const u8, args: c.va_list) bool;
 extern fn ImGui_TreePush(str_id: ?[*:0]const u8) void;
@@ -4316,11 +4285,9 @@ extern fn ImGui_MenuItemBoolPtr(label: ?[*:0]const u8, shortcut: ?[*:0]const u8,
 extern fn ImGui_BeginTooltip() bool;
 extern fn ImGui_EndTooltip() void;
 extern fn ImGui_SetTooltip(fmt: [*:0]const u8, ...) void;
-extern fn ImGui_SetTooltipUnformatted(text: ?[*:0]const u8) void;
 extern fn ImGui_SetTooltipV(fmt: [*:0]const u8, args: c.va_list) void;
 extern fn ImGui_BeginItemTooltip() bool;
 extern fn ImGui_SetItemTooltip(fmt: [*:0]const u8, ...) void;
-extern fn ImGui_SetItemTooltipUnformatted(text: ?[*:0]const u8) void;
 extern fn ImGui_SetItemTooltipV(fmt: [*:0]const u8, args: c.va_list) void;
 extern fn ImGui_BeginPopup(str_id: ?[*:0]const u8, flags: WindowFlags) bool;
 extern fn ImGui_BeginPopupModal(name: ?[*:0]const u8, p_open: ?*bool, flags: WindowFlags) bool;
@@ -4386,7 +4353,6 @@ extern fn ImGui_LogToClipboard(auto_open_depth: c_int) void;
 extern fn ImGui_LogFinish() void;
 extern fn ImGui_LogButtons() void;
 extern fn ImGui_LogText(fmt: [*:0]const u8, ...) void;
-extern fn ImGui_LogTextUnformatted(text: ?[*:0]const u8) void;
 extern fn ImGui_LogTextV(fmt: [*:0]const u8, args: c.va_list) void;
 extern fn ImGui_BeginDragDropSource(flags: DragDropFlags) bool;
 extern fn ImGui_SetDragDropPayload(type: ?[*:0]const u8, data: ?*anyopaque, sz: usize, cond: Cond) bool;

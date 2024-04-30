@@ -828,11 +828,6 @@ CIMGUI_API void cimgui::ImGui_TextColored(cimgui::ImVec4 col, const char* fmt, .
     va_end(args);
 }
 
-CIMGUI_API void cimgui::ImGui_TextColoredUnformatted(cimgui::ImVec4 col, const char* text)
-{
-    ::ImGui::TextColored(ConvertToCPP_ImVec4(col), "%s", text);
-}
-
 CIMGUI_API void cimgui::ImGui_TextColoredV(cimgui::ImVec4 col, const char* fmt, va_list args)
 {
     ::ImGui::TextColoredV(ConvertToCPP_ImVec4(col), fmt, args);
@@ -844,11 +839,6 @@ CIMGUI_API void cimgui::ImGui_TextDisabled(const char* fmt, ...)
     va_start(args, fmt);
     ::ImGui::TextDisabledV(fmt, args);
     va_end(args);
-}
-
-CIMGUI_API void cimgui::ImGui_TextDisabledUnformatted(const char* text)
-{
-    ::ImGui::TextDisabled("%s", text);
 }
 
 CIMGUI_API void cimgui::ImGui_TextDisabledV(const char* fmt, va_list args)
@@ -864,11 +854,6 @@ CIMGUI_API void cimgui::ImGui_TextWrapped(const char* fmt, ...)
     va_end(args);
 }
 
-CIMGUI_API void cimgui::ImGui_TextWrappedUnformatted(const char* text)
-{
-    ::ImGui::TextWrapped("%s", text);
-}
-
 CIMGUI_API void cimgui::ImGui_TextWrappedV(const char* fmt, va_list args)
 {
     ::ImGui::TextWrappedV(fmt, args);
@@ -882,11 +867,6 @@ CIMGUI_API void cimgui::ImGui_LabelText(const char* label, const char* fmt, ...)
     va_end(args);
 }
 
-CIMGUI_API void cimgui::ImGui_LabelTextUnformatted(const char* label, const char* text)
-{
-    ::ImGui::LabelText(label, "%s", text);
-}
-
 CIMGUI_API void cimgui::ImGui_LabelTextV(const char* label, const char* fmt, va_list args)
 {
     ::ImGui::LabelTextV(label, fmt, args);
@@ -898,11 +878,6 @@ CIMGUI_API void cimgui::ImGui_BulletText(const char* fmt, ...)
     va_start(args, fmt);
     ::ImGui::BulletTextV(fmt, args);
     va_end(args);
-}
-
-CIMGUI_API void cimgui::ImGui_BulletTextUnformatted(const char* text)
-{
-    ::ImGui::BulletText("%s", text);
 }
 
 CIMGUI_API void cimgui::ImGui_BulletTextV(const char* fmt, va_list args)
@@ -1468,22 +1443,12 @@ CIMGUI_API bool  cimgui::ImGui_TreeNodeStr(const char* str_id, const char* fmt, 
     va_end(args);
 }
 
-CIMGUI_API bool  cimgui::ImGui_TreeNodeStrUnformatted(const char* str_id, const char* text)
-{
-    return ::ImGui::TreeNode(str_id, "%s", text);
-}
-
 CIMGUI_API bool  cimgui::ImGui_TreeNodePtr(const void* ptr_id, const char* fmt, ...)
 {
     va_list args;
     va_start(args, fmt);
     return ::ImGui::TreeNodeV(ptr_id, fmt, args);
     va_end(args);
-}
-
-CIMGUI_API bool  cimgui::ImGui_TreeNodePtrUnformatted(const void* ptr_id, const char* text)
-{
-    return ::ImGui::TreeNode(ptr_id, "%s", text);
 }
 
 CIMGUI_API bool  cimgui::ImGui_TreeNodeV(const char* str_id, const char* fmt, va_list args)
@@ -1509,22 +1474,12 @@ CIMGUI_API bool  cimgui::ImGui_TreeNodeExStr(const char* str_id, ImGuiTreeNodeFl
     va_end(args);
 }
 
-CIMGUI_API bool  cimgui::ImGui_TreeNodeExStrUnformatted(const char* str_id, ImGuiTreeNodeFlags flags, const char* text)
-{
-    return ::ImGui::TreeNodeEx(str_id, flags, "%s", text);
-}
-
 CIMGUI_API bool  cimgui::ImGui_TreeNodeExPtr(const void* ptr_id, ImGuiTreeNodeFlags flags, const char* fmt, ...)
 {
     va_list args;
     va_start(args, fmt);
     return ::ImGui::TreeNodeExV(ptr_id, flags, fmt, args);
     va_end(args);
-}
-
-CIMGUI_API bool  cimgui::ImGui_TreeNodeExPtrUnformatted(const void* ptr_id, ImGuiTreeNodeFlags flags, const char* text)
-{
-    return ::ImGui::TreeNodeEx(ptr_id, flags, "%s", text);
 }
 
 CIMGUI_API bool  cimgui::ImGui_TreeNodeExV(const char* str_id, ImGuiTreeNodeFlags flags, const char* fmt, va_list args)
@@ -1725,11 +1680,6 @@ CIMGUI_API void cimgui::ImGui_SetTooltip(const char* fmt, ...)
     va_end(args);
 }
 
-CIMGUI_API void cimgui::ImGui_SetTooltipUnformatted(const char* text)
-{
-    ::ImGui::SetTooltip("%s", text);
-}
-
 CIMGUI_API void cimgui::ImGui_SetTooltipV(const char* fmt, va_list args)
 {
     ::ImGui::SetTooltipV(fmt, args);
@@ -1746,11 +1696,6 @@ CIMGUI_API void cimgui::ImGui_SetItemTooltip(const char* fmt, ...)
     va_start(args, fmt);
     ::ImGui::SetItemTooltipV(fmt, args);
     va_end(args);
-}
-
-CIMGUI_API void cimgui::ImGui_SetItemTooltipUnformatted(const char* text)
-{
-    ::ImGui::SetItemTooltip("%s", text);
 }
 
 CIMGUI_API void cimgui::ImGui_SetItemTooltipV(const char* fmt, va_list args)
@@ -2079,11 +2024,6 @@ CIMGUI_API void cimgui::ImGui_LogText(const char* fmt, ...)
     va_start(args, fmt);
     ::ImGui::LogTextV(fmt, args);
     va_end(args);
-}
-
-CIMGUI_API void cimgui::ImGui_LogTextUnformatted(const char* text)
-{
-    ::ImGui::LogText("%s", text);
 }
 
 CIMGUI_API void cimgui::ImGui_LogTextV(const char* fmt, va_list args)

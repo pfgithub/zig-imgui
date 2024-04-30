@@ -94,6 +94,14 @@ pub fn build(b: *std.Build) !void {
     generate_c.addArg("src/cimgui");
     generate_c.addFileArg(imgui_dep.path("imgui.h"));
 
+    // const generate_internal = b.addSystemCommand(&.{"python3"});
+    // generate_internal.addFileArg(dear_bindings.path("dear_bindings.py"));
+    // generate_internal.addArg("-o");
+    // generate_internal.addArg("src/cimgui_internal");
+    // generate_internal.addArg("--config-include");
+    // generate_internal.addFileArg(imgui_dep.path("imgui.h"));
+    // generate_internal.addFileArg(imgui_dep.path("imgui_internal.h"));
+
     const generator_exe = b.addExecutable(.{
         .name = "mach-imgui-generator",
         .root_source_file = .{ .path = "src/generate.zig" },
@@ -107,7 +115,15 @@ pub fn build(b: *std.Build) !void {
     generate_run.addArg("src/cimgui.json");
     generate_run.addArg("src/imgui.zig");
     generate_run.step.dependOn(&generate_c.step);
+    // generate_run.step.dependOn(&generate_internal.step);
+
+    // const generate_run_2 = b.addRunArtifact(generator_exe);
+    // generate_run_2.addArg("src/cimgui_internal.json");
+    // generate_run_2.addArg("src/imgui_internal.zig");
+    // generate_run_2.step.dependOn(&generate_c.step);
+    // generate_run_2.step.dependOn(&generate_internal.step);
 
     const generate_step = b.step("generate", "Generate the bindings");
     generate_step.dependOn(&generate_run.step);
+    // generate_step.dependOn(&generate_run_2.step);
 }
