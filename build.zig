@@ -15,7 +15,7 @@ pub fn build(b: *std.Build) !void {
     }) orelse return;
 
     const module = b.addModule("zig-imgui", .{
-        .root_source_file = .{ .path = "src/imgui.zig" },
+        .root_source_file = b.path("src/imgui.zig"),
         .imports = &.{
             .{ .name = "mach", .module = mach_dep.module("mach") },
         },
@@ -30,24 +30,24 @@ pub fn build(b: *std.Build) !void {
 
     const imgui_dep = b.dependency("imgui", .{});
 
-    var files = std.ArrayList([]const u8).init(b.allocator);
+    var files = std.ArrayList(std.Build.LazyPath).init(b.allocator);
     defer files.deinit();
 
     var flags = std.ArrayList([]const u8).init(b.allocator);
     defer flags.deinit();
 
     try files.appendSlice(&.{
-        "src/cimgui.cpp",
-        imgui_dep.path("imgui.cpp").getPath(b),
-        imgui_dep.path("imgui_widgets.cpp").getPath(b),
-        imgui_dep.path("imgui_tables.cpp").getPath(b),
-        imgui_dep.path("imgui_draw.cpp").getPath(b),
-        imgui_dep.path("imgui_demo.cpp").getPath(b),
+        b.path("src/cimgui.cpp"),
+        imgui_dep.path("imgui.cpp"),
+        imgui_dep.path("imgui_widgets.cpp"),
+        imgui_dep.path("imgui_tables.cpp"),
+        imgui_dep.path("imgui_draw.cpp"),
+        imgui_dep.path("imgui_demo.cpp"),
     });
 
     if (use_freetype) {
         try flags.append("-DIMGUI_ENABLE_FREETYPE");
-        try files.append(imgui_dep.path("misc/freetype/imgui_freetype.cpp").getPath(b));
+        try files.append(imgui_dep.path("misc/freetype/imgui_freetype.cpp"));
 
         lib.linkLibrary((b.lazyDependency("freetype", .{
             .target = target,
@@ -59,11 +59,11 @@ pub fn build(b: *std.Build) !void {
     try flags.append("-fno-sanitize=undefined");
     try flags.append("-include" ++ "imconfig_override.h");
 
-    lib.addIncludePath(.{ .path = "src" });
+    lib.addIncludePath(b.path("src"));
     lib.addIncludePath(imgui_dep.path("."));
 
     for (files.items) |file| {
-        lib.addCSourceFile(.{ .file = .{ .path = file }, .flags = flags.items });
+        lib.addCSourceFile(.{ .file = file, .flags = flags.items });
     }
 
     b.installArtifact(lib);
@@ -104,7 +104,7 @@ pub fn build(b: *std.Build) !void {
 
     const generator_exe = b.addExecutable(.{
         .name = "mach-imgui-generator",
-        .root_source_file = .{ .path = "src/generate.zig" },
+        .root_source_file = b.path("src/generate.zig"),
         .target = target,
         .optimize = optimize,
     });

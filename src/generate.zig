@@ -682,7 +682,7 @@ pub fn main() !void {
     emit(valueTree.value);
     std.log.info("-> done", .{});
 
-    try std.fs.cwd().writeFile2(.{
+    try std.fs.cwd().writeFile(.{
         .sub_path = dst_arg,
         .data = out_writer.items,
     });
